@@ -933,7 +933,7 @@ def main(operators,npo,usersPerOperator,N,l,w):
 	for i in range(len(enb_coord)):
 		load[i] = len(UEs[i])
 
-	print load
+	#print load
 
 	
 	ue_list_to_print={}
@@ -965,7 +965,7 @@ def main(operators,npo,usersPerOperator,N,l,w):
 
 	#write info to file
 	info = open(outputDir + 'info.txt','w')
-	comp = open(outputDir + 'convergence.txt','w')
+	comp = open(outputDir + 'test.py','w')
 
 	#writing variables to file to recreate experiment
 	info.write('\n')
@@ -1000,10 +1000,16 @@ def main(operators,npo,usersPerOperator,N,l,w):
 
 	results = {}
 	for m in G:
+		print 'graph size', len(m)
 		(i_map,i_map_,fill_in,C) = getCliques(m)
+		if (len(m) > 1000):
+			comp.write('from Fermi import FermiPreCompute\n')
+			comp.write('N=100\ni_map ='+str(i_map)+'\n'+'i_map_='+str(i_map_)+'\n'+'fill_in='+str(fill_in)+'\n'+'C='+str(C)+'\n'+'load='+str(load)+'\n')
+			comp.write('FermiPreCompute(i_map,load,N,i_map_,fill_in,C)\n')
 		FermiPreCompute(i_map,load,N,i_map_,fill_in,C)
 
 
+	comp.close()
 	#plot_graph(outputDir,'interferencemap', i_map, enb_coord, u_m, UEs,l,w,npo)
 	#os.system('octave ' + outputDir + 'interferencemap.m')
 	#plot_ue_interference(outputDir,'UEinterferencemap', edges, enb_coord, u_m, UEs,l, w)
@@ -1015,13 +1021,13 @@ def main(operators,npo,usersPerOperator,N,l,w):
 # Body, generating scripts
 #os.system('mkdir ' + outputDir)
 for z in range(1):
-	l = 2000
-	w = 2000
+	l = 3000
+	w = 3000
 	N = 100
 	#info2.write(str(z)+'\n')
 	operators = 3
-	npo = [400,400,400]
-	usersPerOperator = {0:800,1:800,2:800}
+	npo = [1000,1000,1000]
+	usersPerOperator = {0:2000,1:2000,2:2000}
 	main(operators,npo,usersPerOperator,N,l,w)
 	'''
 	os.system('mv res/utils.jpg res/utils_'+str(z)+'.jpg')

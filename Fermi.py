@@ -2,6 +2,8 @@ import math
 import networkx as nx
 import Queue as Q
 from copy import deepcopy
+from copy import copy
+
 
 #Tree class
 class Node(object):
@@ -61,6 +63,15 @@ def remove_node(e,c_map):
 			if e in c_map[n]:
 				c_map[n].remove(e)
 		del c_map[e]
+		#c_map[e] = set()
+	return c_map
+
+def remove_nodes(e,c_map):
+	for n in c_map:
+		c_map[n] = c_map[n]-e
+	#del c_map[e]
+	for n in e:
+		c_map[n] = set()
 	return c_map
 
 def dfs(graph, start):
@@ -80,6 +91,25 @@ def dfs(graph, start):
     #print '**********************************'
     return visited	
 
+def dfs(graph, start, endn):
+    if len(graph) == 0:
+       return set()
+    visited, stack = set(), [start]
+    #print '**********************************'
+    #print graph
+    #print start
+    while stack:
+        vertex = stack.pop()
+        if vertex == endn:
+        	return True
+        if vertex not in visited:
+            visited.add(vertex)
+            #print vertex
+            stack.extend(graph[vertex] - visited)
+    #print visited
+    #print '**********************************'
+    return False	
+
 def Triangulation (G):
 
     F = set()
@@ -93,30 +123,43 @@ def Triangulation (G):
     #print n
 
     G_unnumbered = deepcopy(G)
+    G_dashes = {}
     for node in G_unnumbered:
         G_unnumbered[node] = set(G_unnumbered[node])
+    #for node in G_unnumbered:
+    #    G_dashes[node] = deepcopy(G_unnumbered)
 
     for i in range (n,0,-1):
-        #print (un_numbered)
+        print i
         z = max_u(un_numbered,w)
         alpha[z] = i
         un_numbered.remove(z)
-        wz_minus = deepcopy(w)
+        wz_minus = copy(w)#deepcopy(w)
         for y in un_numbered:
+           #print '\t', y
            if z in G[y]:
 		w[y] += 1
                 #F.add((y,z))
                 continue
-           G_dash = deepcopy(G_unnumbered)
+           G_dash = copy(G_unnumbered)# G_dashes[y]
+           nodes_to_remove = set()
            for node in G_unnumbered:
-               if (node != z and node != y and wz_minus[node] >= wz_minus[y]):
-			G_dash = remove_node(node,G_dash)
+              if (node != z and node != y and wz_minus[node] >= wz_minus[y]):
+              	nodes_to_remove.add(node)
+           G_dash = remove_nodes(nodes_to_remove,G_dash)
 	   
+           '''
            p = dfs(G_dash,z)
            #print p
            if y in p :
                 w[y] += 1
                 F.add((y,z))
+           '''     
+           if dfs(G_dash,z,y) :
+                w[y] += 1
+                F.add((y,z))
+           #G_dashes[y] = remove_node(z,G_dash)
+
         G_unnumbered = remove_node(z,G_unnumbered)
         #print(z,w)
 
@@ -196,7 +239,16 @@ def Triangulation2 (G):
 
 
 # Allocation
-def s_tuple(v_i,C,L):
+def s_tuple(v_i,C,L,cliqueAssoc):
+        t_i = 0
+        l_i = -1
+        for j in cliqueAssoc[v_i]:
+                t_i += 1
+                if L[j] > l_i:
+                        l_i = L[j]
+        return (l_i,t_i)
+
+def s_tuple2(v_i,C,L):
         t_i = 0
         l_i = -1
         for j in range (len(C)):
@@ -206,7 +258,7 @@ def s_tuple(v_i,C,L):
                                 l_i = L[j]
         return (l_i,t_i)
 
-def init_alloc (v_i,C,l,R):
+def init_alloc2 (v_i,C,l,R,cliqueAssoc):
 
         assigned = False
         for j in range (len(C)):
@@ -224,6 +276,25 @@ def init_alloc (v_i,C,l,R):
                                 assigned = True
                         elif new_val < A:
                                 A = new_val
+        return A
+
+def init_alloc (v_i,C,l,R,cliqueAssoc):
+
+        assigned = False
+        for j in cliqueAssoc[v_i]:
+                l_sum = 0
+                for k in C[j]:
+                        l_sum += l[k]
+
+		if (l_sum > 0): # this check added to incorporate nodes with share = 0
+			new_val = math.floor(l[v_i]*R[j]/l_sum + 0.5)
+		else:
+                	new_val = 0
+                if  not assigned:
+                        A = new_val
+                        assigned = True
+                elif new_val < A:
+                        A = new_val
         return A
 
 def max_rank(s):
@@ -251,7 +322,19 @@ def cliques(graph):
 		C[i] = list(C[i])
 	return C
 
-
+def getMaxRank(U,C,L,cliqueAssoc):
+	max_r = 0
+	s = []
+        for j in range(len(U)):
+		i = U[j]
+                s.append(s_tuple(i,C,L,cliqueAssoc))
+		#print s
+		if (s[j][0]>s[max_r][0]):
+                        max_r = j
+                elif (s[j][0]==s[max_r][0]):
+                        if (s[j][1]>s[max_r][1]):
+                                max_r = j
+	return max_r
 
 # Calculate Fermi allocation as described in the paper as Algorithm 2
 # and also the first part of step 2 of Algorithm 1 in the paper
@@ -274,16 +357,24 @@ def Allocate (G,load,N,C):
                         sum_load += load[i]
                 L.append(sum_load)
                 R.append(N)
-        s =[]
+        
+	cliqueAssoc = {}
+	for i in range(len(C)):
+		for v in C[i]:
+			if v in cliqueAssoc:
+				cliqueAssoc[v].append(i)
+			else:
+				cliqueAssoc[v] = [i]
+
+	maxRank = getMaxRank(U,C,L,cliqueAssoc)
         for i in U:
-                s.append(s_tuple(i,C,L))
-                
-        for i in U:
-                A[i]=init_alloc (i,C,load,R)
-                
+                A[i]=init_alloc (i,C,load,R,cliqueAssoc)
+        
+			
         Alloc = {}
         while len(U) > 0:
-                v_0 = U[max_rank(s)]
+                #print len(U)
+                v_0 = U[maxRank]
 		#print (A)
                 Alloc[v_0]=int(A[v_0])
                 U.remove(v_0)
@@ -292,12 +383,12 @@ def Allocate (G,load,N,C):
                                 R[j] -= A[v_0]
                                 C[j].remove(v_0)
                                 L[j] -= load[v_0]
-                s =[]
-                for i in U:
-                        s.append(s_tuple(i,C,L))
                 
+                maxRank = getMaxRank(U,C,L,cliqueAssoc)
+                                
                 for i in U:
-                        A[i]=init_alloc (i,C,load,R)
+                        A[i]=init_alloc (i,C,load,R,cliqueAssoc)
+                
                 
         return Alloc
 
@@ -530,66 +621,6 @@ def Assignment2(Alloc,N,C,i_map,eNBtoOp):
 	return Assign
 
 
-# Second part of step 2 of Algorithm 1 in Fermi, summarized in the text
-# Assignes the actual channels based on previously calculated shares
-# Input:
-#   Allocation - from the previous step
-#   N - number of channels
-#   C - cliques
-#   ReuzeZoneSizes - operational ReuseZoneSizes for each eNB
-# Output:
-#   Assign - map (nodeID, [channels])
-def Assignment_RZ(Alloc,N,C,ReuzeZoneSizes):
-	root = Node(C[-1])
-	C.remove(C[-1])
-	tree = makeTree(root,C)	
-	
-	Assign = {}
-
-	for e in ReuzeZoneSizes:
-		if (ReuzeZoneSizes[e] > 0):
-			Assign[e] = [(0,ReuzeZoneSizes[e] - 1)]
-	
-	subchannels = [0 for i in range(N)]
-	q = Q.Queue()
-	q.put(tree)
-	U = list(Alloc.keys())
-	while (q.empty() == False):
-		curr_node = q.get()
-		#print ("CLIQUE:",curr_node.data)
-
-		# initially all channels are available
-		subchannels = [0 for i in range(N)]
-
-		# put the children of all current nodes in queue
-		for ch in curr_node.children:
-			q.put(ch)
-
-		for v in curr_node.data:
-			# color channels that are already assigned in this clique
-			if v in Assign:
-				subchannels = color_channel(Assign[v],subchannels)
-
-		for v in curr_node.data:
-			# check if current not hasn't been allocated its share
-			if v in U:
-				RZ_exists = False
-				# if in U and also in Assign means its an RZ client
-				if v in Assign:
-					RZ = Assign[v][0]
-					RZ_exists = True
-				if (Alloc[v] > 0): # check added to incorporate nodes with 0 load
-					Assign[v]=allocate_sub_chan(v,subchannels,Alloc[v]) 
-					if (RZ_exists):
-						Assign[v].append(RZ)
-				U.remove(v)
-				# if assigned anything to v color it, else assign it an empty list
-				if v in Assign:
-					subchannels = color_channel(Assign[v],subchannels)
-				else :
-					Assign[v] = []
-
-	return Assign
 
 
 def restore(v,free,subchannels):
