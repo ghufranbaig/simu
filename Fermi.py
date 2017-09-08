@@ -138,15 +138,20 @@ def Triangulation (G):
         for y in un_numbered:
            #print '\t', y
            if z in G[y]:
-		w[y] += 1
-                #F.add((y,z))
-                continue
-           G_dash = copy(G_unnumbered)# G_dashes[y]
+           	w[y] += 1
+           	continue
+           #G_dash = copy(G_unnumbered)# G_dashes[y]
            nodes_to_remove = set()
-           for node in G_unnumbered:
+           nodes_to_add = set()
+           for node in un_numbered:
               if (node != z and node != y and wz_minus[node] >= wz_minus[y]):
               	nodes_to_remove.add(node)
-           G_dash = remove_nodes(nodes_to_remove,G_dash)
+              else:
+              	nodes_to_add.add(node)
+           G_dash = {}
+           for node in nodes_to_add:
+           	G_dash[node] = G_unnumbered[node] - nodes_to_remove
+           #G_dash = remove_nodes(nodes_to_remove,G_dash)
 	   
            '''
            p = dfs(G_dash,z)
@@ -154,10 +159,11 @@ def Triangulation (G):
            if y in p :
                 w[y] += 1
                 F.add((y,z))
-           '''     
+                
            if dfs(G_dash,z,y) :
                 w[y] += 1
                 F.add((y,z))
+           '''
            #G_dashes[y] = remove_node(z,G_dash)
 
         G_unnumbered = remove_node(z,G_unnumbered)
@@ -367,14 +373,15 @@ def Allocate (G,load,N,C):
 				cliqueAssoc[v] = [i]
 
 	maxRank = getMaxRank(U,C,L,cliqueAssoc)
-        for i in U:
-                A[i]=init_alloc (i,C,load,R,cliqueAssoc)
+        #for i in U:
+        #        A[i]=init_alloc (i,C,load,R,cliqueAssoc)
         
 			
         Alloc = {}
         while len(U) > 0:
                 #print len(U)
                 v_0 = U[maxRank]
+                A[v_0] = init_alloc (v_0,C,load,R,cliqueAssoc)
 		#print (A)
                 Alloc[v_0]=int(A[v_0])
                 U.remove(v_0)
@@ -386,8 +393,8 @@ def Allocate (G,load,N,C):
                 
                 maxRank = getMaxRank(U,C,L,cliqueAssoc)
                                 
-                for i in U:
-                        A[i]=init_alloc (i,C,load,R,cliqueAssoc)
+                #for i in U:
+                #        A[i]=init_alloc (i,C,load,R,cliqueAssoc)
                 
                 
         return Alloc

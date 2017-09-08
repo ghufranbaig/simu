@@ -1021,13 +1021,13 @@ def main(operators,npo,usersPerOperator,N,l,w):
 # Body, generating scripts
 #os.system('mkdir ' + outputDir)
 for z in range(1):
-	l = 3000
-	w = 3000
+	l = 2000
+	w = 2000
 	N = 100
 	#info2.write(str(z)+'\n')
 	operators = 3
-	npo = [1000,1000,1000]
-	usersPerOperator = {0:2000,1:2000,2:2000}
+	npo = [500,500,500]
+	usersPerOperator = {0:20,1:20,2:20}
 	main(operators,npo,usersPerOperator,N,l,w)
 	'''
 	os.system('mv res/utils.jpg res/utils_'+str(z)+'.jpg')
