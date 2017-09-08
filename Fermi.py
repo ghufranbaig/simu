@@ -385,8 +385,7 @@ def Allocate (G,load,N,C):
 		#print (A)
                 Alloc[v_0]=int(A[v_0])
                 U.remove(v_0)
-                for j in range (len(C)):
-                        if v_0 in C[j]:
+                for j in cliqueAssoc[v_0]:
                                 R[j] -= A[v_0]
                                 C[j].remove(v_0)
                                 L[j] -= load[v_0]
