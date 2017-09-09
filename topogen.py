@@ -6,6 +6,7 @@ from copy import deepcopy
 from Fermi import Fermi
 from Fermi import getCliques
 from Fermi import FermiPreCompute
+from Fermi import getCut
 from helper_misc import *
 import numpy as np
 
@@ -877,6 +878,8 @@ def run_creditBased2bWith (UEs,u_m,G,N,UE_activity,info,comp,timesteps,Rx_power,
 
 	return (All_util,All_tput)
 
+import networkx as nx
+
 def main(operators,npo,usersPerOperator,N,l,w):
 
         # number of sub-channels
@@ -998,6 +1001,8 @@ def main(operators,npo,usersPerOperator,N,l,w):
 
 	writegeneralInfo(info,enb_coord,ue_list_to_print,UEs,load,i_map,i_map,{},{},G,u_m)
 
+	
+	'''
 	results = {}
 	for m in G:
 		print 'graph size', len(m)
@@ -1007,8 +1012,12 @@ def main(operators,npo,usersPerOperator,N,l,w):
 			comp.write('N=100\ni_map ='+str(i_map)+'\n'+'i_map_='+str(i_map_)+'\n'+'fill_in='+str(fill_in)+'\n'+'C='+str(C)+'\n'+'load='+str(load)+'\n')
 			comp.write('FermiPreCompute(i_map,load,N,i_map_,fill_in,C)\n')
 		FermiPreCompute(i_map,load,N,i_map_,fill_in,C)
-
-
+	'''
+	for m in G:
+		new_graph = getCut(m)
+		G2 = connected_graphs(new_graph)
+		for g in G2:
+			print 'subgraph len',(len(g))
 	comp.close()
 	#plot_graph(outputDir,'interferencemap', i_map, enb_coord, u_m, UEs,l,w,npo)
 	#os.system('octave ' + outputDir + 'interferencemap.m')
@@ -1021,12 +1030,12 @@ def main(operators,npo,usersPerOperator,N,l,w):
 # Body, generating scripts
 #os.system('mkdir ' + outputDir)
 for z in range(1):
-	l = 2000
-	w = 2000
+	l = 1000
+	w = 1000
 	N = 100
 	#info2.write(str(z)+'\n')
 	operators = 3
-	npo = [500,500,500]
+	npo = [150,150,150]
 	usersPerOperator = {0:20,1:20,2:20}
 	main(operators,npo,usersPerOperator,N,l,w)
 	'''

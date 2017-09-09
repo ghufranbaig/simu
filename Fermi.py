@@ -284,13 +284,11 @@ def init_alloc2 (v_i,C,l,R,cliqueAssoc):
                                 A = new_val
         return A
 
-def init_alloc (v_i,C,l,R,cliqueAssoc):
+def init_alloc (v_i,C,l,R,cliqueAssoc,L):
 
         assigned = False
         for j in cliqueAssoc[v_i]:
-                l_sum = 0
-                for k in C[j]:
-                        l_sum += l[k]
+                l_sum = L[j]
 
 		if (l_sum > 0): # this check added to incorporate nodes with share = 0
 			new_val = math.floor(l[v_i]*R[j]/l_sum + 0.5)
@@ -327,6 +325,8 @@ def cliques(graph):
 	for i in range (len(C)):
 		C[i] = list(C[i])
 	return C
+
+
 
 def getMaxRank(U,C,L,cliqueAssoc):
 	max_r = 0
@@ -376,26 +376,32 @@ def Allocate (G,load,N,C):
         #for i in U:
         #        A[i]=init_alloc (i,C,load,R,cliqueAssoc)
         
-			
+        numm = 0
         Alloc = {}
         while len(U) > 0:
                 #print len(U)
                 v_0 = U[maxRank]
-                A[v_0] = init_alloc (v_0,C,load,R,cliqueAssoc)
+                A[v_0] = init_alloc (v_0,C,load,R,cliqueAssoc,L)
 		#print (A)
                 Alloc[v_0]=int(A[v_0])
                 U.remove(v_0)
+
+                #next_max_rank = getMaxRank(U,C,L,cliqueAssoc)
                 for j in cliqueAssoc[v_0]:
                                 R[j] -= A[v_0]
                                 C[j].remove(v_0)
                                 L[j] -= load[v_0]
                 
                 maxRank = getMaxRank(U,C,L,cliqueAssoc)
+
+                #if (maxRank != next_max_rank):
+                    #print 'error!!!'
+                #    numm += 1
                                 
                 #for i in U:
                 #        A[i]=init_alloc (i,C,load,R,cliqueAssoc)
                 
-                
+        #print 'times err occurred:', numm
         return Alloc
 
 
@@ -726,10 +732,56 @@ def ReclaimSC(Assign,N,C,IsClass1,i_map):
 						break
 
 	return Reclaim
-
+import sys
+sys.path.insert(0, './Balanced_Graph_Partitioning')
 from timeit import default_timer as timer
+import random
+from networkx.algorithms.connectivity import minimum_st_node_cut
+from  Balancer_Cut import *
+def getCut(graph):
+    if (len(graph) < 10):
+        return graph
+    print 'graph size', len(graph)
+    G=nx.Graph()
+    for n in graph:
+        G.add_node(n)
+    for n in graph:
+        for e in graph[n]:
+            G.add_edge(n,e)
 
+    for (u, v) in G.edges():                            # initialize the weight of the edges of the graph
+            G.edge[u][v]['weight'] = 1 #random.randint(0, 10)
+    for n in G.nodes():                                     # initialize the weight of the nodes of the graph
+        G.node[n]['weight'] = 1 #random.random() * 100
+    k = 2
+    epsilon = 1.0
+    n = G.number_of_nodes()
+    print 'epsilon=', epsilon,'n=',n
+    partitor = GraphPartitioning(epsilon, n, k, G)      # create the object and pass it the intial graph
+    bestP = partitor.run()
+    for el in bestP:
+        print 'partition len:',len(el)
+                                 # run the algorithm and return the best paritition
+    #print("The best parition is:")
+    #partitor.printPartition(bestP)
+    #node_cut = nx.minimum_node_cut(G)
+    #print 'min_node',node_cut
+    #node_cut = nx.all_node_cuts(G)
+    print("The cost of the parition is:")
+    print(partitor.getCostPartition(bestP))
+    '''
+    s = graph.keys()[random.randint(0,len(graph)-1)]
+    t = graph.keys()[random.randint(0,len(graph)-1)]
+    node_cut = minimum_st_node_cut(G,s,t)
+    '''
+    #for n in node_cut:
+    #    print n
 
+    new_graph = copy(graph)
+    #for n in node_cut:
+    #    new_graph = remove_node(n,new_graph)
+    
+    return new_graph
 
 def getCliques(i_map):
 	start = timer()
