@@ -733,11 +733,31 @@ def ReclaimSC(Assign,N,C,IsClass1,i_map):
 
 	return Reclaim
 import sys
-sys.path.insert(0, './Balanced_Graph_Partitioning')
+#sys.path.insert(0, './Balanced_Graph_Partitioning')
 from timeit import default_timer as timer
 import random
 from networkx.algorithms.connectivity import minimum_st_node_cut
-from  Balancer_Cut import *
+#from  Balancer_Cut import *
+
+def cutEdges(G,bestP):
+    edgesremoved = set()
+    effectedNodes = set()
+    for p in bestP:
+        par = nx.convert.to_dict_of_dicts(p)
+        for n in par:
+            remEdge = set(G[n]) - set(par[n].keys())
+            if (size(remEdge) == 0):
+                continue
+            effectedNodes.add(n)
+            for node in remEdge:
+                edgesremoved.add((n,node))
+                effectedNodes.add(node)
+    print 'effected nodes:',len(effectedNodes)
+    print 'edges removed:',len(edgesremoved)/2
+
+
+
+
 def getCut(graph):
     if (len(graph) < 10):
         return graph
@@ -759,9 +779,10 @@ def getCut(graph):
     print 'epsilon=', epsilon,'n=',n
     partitor = GraphPartitioning(epsilon, n, k, G)      # create the object and pass it the intial graph
     bestP = partitor.run()
-    for el in bestP:
-        print 'partition len:',len(el)
+    #for el in bestP:
+    #    print 'partition len:',len(el)
                                  # run the algorithm and return the best paritition
+    cutEdges(G,bestP)
     #print("The best parition is:")
     #partitor.printPartition(bestP)
     #node_cut = nx.minimum_node_cut(G)
