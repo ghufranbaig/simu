@@ -6,7 +6,8 @@ from copy import deepcopy
 from Fermi import Fermi
 from Fermi import getCliques
 from Fermi import FermiPreCompute
-from Fermi import getCut
+from Fermi import FermiPreCompute2
+
 from helper_misc import *
 import numpy as np
 
@@ -907,13 +908,18 @@ def main(operators,npo,usersPerOperator,N,l,w):
 	#n = int(math.floor((l*w)*density + 0.5))
 	#npo = [2,2,2]
 	print(npo)
+	opEnb = {}
 	j = 0
 	k = 0;
 	for i in range(operators):
 		Op = Operator(i)
 		temp_coords = gen_eNbs_coord(npo[i],l,w)
 		Op.add_eNBs(temp_coords,j)
+
+		opEnb[i] = range(j,j+len(temp_coords))
 		j += len(temp_coords)
+
+
 
 		temp_coords = gen_ue_coord(usersPerOperator[i],l,w,Op)
 		Op.add_UEs(temp_coords,k)
@@ -1003,21 +1009,28 @@ def main(operators,npo,usersPerOperator,N,l,w):
 
 	
 	'''
+	G_info = []
 	results = {}
 	for m in G:
 		print 'graph size', len(m)
 		(i_map,i_map_,fill_in,C) = getCliques(m)
-		if (len(m) > 1000):
-			comp.write('from Fermi import FermiPreCompute\n')
-			comp.write('N=100\ni_map ='+str(i_map)+'\n'+'i_map_='+str(i_map_)+'\n'+'fill_in='+str(fill_in)+'\n'+'C='+str(C)+'\n'+'load='+str(load)+'\n')
-			comp.write('FermiPreCompute(i_map,load,N,i_map_,fill_in,C)\n')
-		FermiPreCompute(i_map,load,N,i_map_,fill_in,C)
+		G_info.append((i_map,i_map_,fill_in,C,opEnb,load))
+	
+		comp.write('from Fermi import FermiPreCompute2\n')
+		comp.write('N=100\n')
+		comp.write('G_info = '+str(G_info)+'\n')
+		comp.write('for i in range(len(G_info)):\n')
+		comp.write('\t(i_map,i_map_,fill_in,C,opEnb,load) = G_info[i]\n')
+		comp.write('\tFermiPreCompute2(i_map,load,N,i_map_,fill_in,C,opEnb)\n')
 	'''
 	for m in G:
-		new_graph = getCut(m)
-		G2 = connected_graphs(new_graph)
-		for g in G2:
-			print 'subgraph len',(len(g))
+		(i_map,i_map_,fill_in,C) = getCliques(m)
+		FermiPreCompute2(i_map,load,N,i_map_,fill_in,C,opEnb)
+		#new_graph = getCut(m)
+		#G2 = connected_graphs(new_graph)
+		#for g in G2:
+		#	print 'subgraph len',(len(g))
+	
 	comp.close()
 	#plot_graph(outputDir,'interferencemap', i_map, enb_coord, u_m, UEs,l,w,npo)
 	#os.system('octave ' + outputDir + 'interferencemap.m')
@@ -1029,15 +1042,16 @@ def main(operators,npo,usersPerOperator,N,l,w):
 
 # Body, generating scripts
 #os.system('mkdir ' + outputDir)
-for z in range(1):
-	l = 1000
-	w = 1000
+for z in range(0):
+	l = 200
+	w = 200
 	N = 100
 	#info2.write(str(z)+'\n')
 	operators = 3
-	npo = [150,150,150]
-	usersPerOperator = {0:20,1:20,2:20}
+	npo = [40,40,40]
+	usersPerOperator = {0:50,1:50,2:50}
 	main(operators,npo,usersPerOperator,N,l,w)
+	os.system('mv res/test.py res/test'+str(z)+'.py')
 	'''
 	os.system('mv res/utils.jpg res/utils_'+str(z)+'.jpg')
 	os.system('mv res/interferencemap.jpg res/interferencemap_'+str(z)+'.jpg')
@@ -1066,3 +1080,11 @@ for z in range(1):
 	#os.system('mv comparison.txt res/'+str(z)+'/comparison.txt')
 	#os.system('mv convergence.txt res/convergence_'+str(z)+'.txt')
 #info2.close()
+#A:0 B:1 C:2 D:3 E:4 F:5 G:6
+G = {0:[1,3],1:[2,0],2:[1,3,4,5],3:[0,2,6],4:[2,5],5:[2,4],6:[3]}
+load = {0:1,1:1,2:2,3:1,4:2,5:1,6:3}
+opEnb = {0:[0,1,5],1:[4,6],2:[2,3]}
+(i_map,i_map_,fill_in,C) = getCliques(G)
+N=30
+FermiPreCompute2(i_map,load,N,i_map_,fill_in,C,opEnb)
+# print g_

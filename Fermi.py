@@ -5,6 +5,9 @@ from copy import deepcopy
 from copy import copy
 
 
+max_BW_chan = 20
+allocation_granularity = 5
+
 #Tree class
 class Node(object):
     def __init__(self, data):
@@ -71,10 +74,10 @@ def remove_nodes(e,c_map):
 		c_map[n] = c_map[n]-e
 	#del c_map[e]
 	for n in e:
-		c_map[n] = set()
+		del c_map[n]
 	return c_map
 
-def dfs(graph, start):
+def dfs1(graph, start):
     if len(graph) == 0:
        return set()
     visited, stack = set(), [start]
@@ -140,35 +143,36 @@ def Triangulation (G):
            if z in G[y]:
            	w[y] += 1
            	continue
-           #G_dash = copy(G_unnumbered)# G_dashes[y]
+           G_dash = deepcopy(G_unnumbered)# G_dashes[y]
+           
            nodes_to_remove = set()
            nodes_to_add = set()
            for node in un_numbered:
               if (node != z and node != y and wz_minus[node] >= wz_minus[y]):
               	nodes_to_remove.add(node)
-              else:
-              	nodes_to_add.add(node)
-           G_dash = {}
-           for node in nodes_to_add:
-           	G_dash[node] = G_unnumbered[node] - nodes_to_remove
-           #G_dash = remove_nodes(nodes_to_remove,G_dash)
+		#G_dash = remove_node(node,G_dash)
+
+           #G_dash = {}
+           #for node in nodes_to_add:
+           #	G_dash[node] = G_unnumbered[node] - nodes_to_remove
+           G_dash = remove_nodes(nodes_to_remove,G_dash)
 	   
            '''
-           p = dfs(G_dash,z)
+           p = dfs1(G_dash,z)
            #print p
            if y in p :
                 w[y] += 1
                 F.add((y,z))
-                
+            '''
+
            if dfs(G_dash,z,y) :
                 w[y] += 1
                 F.add((y,z))
-           '''
+           
            #G_dashes[y] = remove_node(z,G_dash)
 
         G_unnumbered = remove_node(z,G_unnumbered)
         #print(z,w)
-
 
     for a in G:
         G[a]=set(G[a])
@@ -181,6 +185,7 @@ def Triangulation (G):
 		fill_in.append(edge)
     for a in G:
         G[a]=list(G[a])
+    print fill_in
     return (G,fill_in)
 
 
@@ -461,6 +466,9 @@ def allocate_sub_chan(v,sub_channels,alloc):
 
 def allocate_sub_chan2(v,sub_channels,alloc,prefSubchannels):
 
+	if (v==6):
+		print sub_channels
+		print prefSubchannels 
 	sub_channels2 = sub_channels[:]
 	assign1 = allocate_sub_chan(v,prefSubchannels,alloc)
 	sub_channels2 = color_channel(assign1,sub_channels2)
@@ -472,11 +480,11 @@ def allocate_sub_chan2(v,sub_channels,alloc,prefSubchannels):
 	return assign1
 		
 
-def color_channel(assigned,subchannels):
+def color_channel(assigned,subchannels,clr=1):
 	clrd = 0
 	for block in assigned:
 		for i in range(block[0],block[1]+1):
-			subchannels[i] = 1
+			subchannels[i] = clr
 			clrd += 1
 	return subchannels
 
@@ -540,47 +548,43 @@ def Assignment(Alloc,N,C):
 	return Assign
 
 
-def Assignment(Alloc,N,C):
-	
-	root = Node(C[-1])
-	C.remove(C[-1])
-	tree = makeTree(root,C)	
-	
-	Assign = {}
-	subchannels = [0 for i in range(N)]
-	q = Q.Queue()
-	q.put(tree)
-	U = list(Alloc.keys())
+def Assignment3(Alloc,N,C,i_map,opEnbs):
 
-	prefSubchannels = {}
-	for e in U:
-		prefSubchannels[e] = [0 for i in range(N)]
+    eNBtoOp = {}
+    for e in opEnbs:
+        for n in opEnbs[e]:
+            eNBtoOp[n] = e
 
-	while (q.empty() == False):
-		curr_node = q.get()
-		subchannels = [0 for i in range(N)]
-		for ch in curr_node.children:
-			q.put(ch)
+    Assign = {}
+    U = list(Alloc.keys())
+    cliqueAssoc = {}
+    for i in range(len(C)):
+        for v in C[i]:
+            if v in cliqueAssoc:
+                cliqueAssoc[v].append(i)
+            else:
+                cliqueAssoc[v] = [i]
 
+    prefSubchannels = {}
+    for e in U:
+    	prefSubchannels[e] = [1 for i in range(N)]
 
-		#Alc = 0
-		for v in curr_node.data:
-			if v in Assign:
-				subchannels = color_channel(Assign[v],subchannels)
-				#alc = 0
-				#for blk in Assign[v]:
-				#	alc += blk[1]-blk[0]+1
-				#if (alc > Alloc[v]):
-				#	print v, 'allocated more', Alloc[v], alc
-				#Alc += alc
-		
+    availSubchannels = {}
+    for e in U:
+        availSubchannels[e] = [0 for i in range(N)]
 
-		for v in curr_node.data:
-			if v in U:
-				Assign[v]=allocate_sub_chan(v,subchannels,Alloc[v]) 
-				U.remove(v)
-				subchannels = color_channel(Assign[v],subchannels)
-	return Assign
+    for op in opEnbs:
+	for v in opEnbs[op]:
+		subchannels = availSubchannels[v]
+		Assign[v]=allocate_sub_chan2(v,subchannels,Alloc[v],prefSubchannels[v])
+		for n in opEnbs[op]:
+		    prefSubchannels[n] = color_channel(Assign[v],prefSubchannels[n],0)
+		for i in cliqueAssoc[v]:
+		    for n in C[i]:
+			    availSubchannels[n] = color_channel(Assign[v],availSubchannels[n])
+			    prefSubchannels[n] = color_channel(Assign[v],prefSubchannels[n])
+
+    return Assign
 
 
 def Assignment2(Alloc,N,C,i_map,eNBtoOp):
@@ -732,77 +736,7 @@ def ReclaimSC(Assign,N,C,IsClass1,i_map):
 						break
 
 	return Reclaim
-import sys
-#sys.path.insert(0, './Balanced_Graph_Partitioning')
 from timeit import default_timer as timer
-import random
-from networkx.algorithms.connectivity import minimum_st_node_cut
-#from  Balancer_Cut import *
-
-def cutEdges(G,bestP):
-    edgesremoved = set()
-    effectedNodes = set()
-    for p in bestP:
-        par = nx.convert.to_dict_of_dicts(p)
-        for n in par:
-            remEdge = set(G[n]) - set(par[n].keys())
-            if (size(remEdge) == 0):
-                continue
-            effectedNodes.add(n)
-            for node in remEdge:
-                edgesremoved.add((n,node))
-                effectedNodes.add(node)
-    print 'effected nodes:',len(effectedNodes)
-    print 'edges removed:',len(edgesremoved)/2
-
-
-
-
-def getCut(graph):
-    if (len(graph) < 10):
-        return graph
-    print 'graph size', len(graph)
-    G=nx.Graph()
-    for n in graph:
-        G.add_node(n)
-    for n in graph:
-        for e in graph[n]:
-            G.add_edge(n,e)
-
-    for (u, v) in G.edges():                            # initialize the weight of the edges of the graph
-            G.edge[u][v]['weight'] = 1 #random.randint(0, 10)
-    for n in G.nodes():                                     # initialize the weight of the nodes of the graph
-        G.node[n]['weight'] = 1 #random.random() * 100
-    k = 2
-    epsilon = 1.0
-    n = G.number_of_nodes()
-    print 'epsilon=', epsilon,'n=',n
-    partitor = GraphPartitioning(epsilon, n, k, G)      # create the object and pass it the intial graph
-    bestP = partitor.run()
-    #for el in bestP:
-    #    print 'partition len:',len(el)
-                                 # run the algorithm and return the best paritition
-    cutEdges(G,bestP)
-    #print("The best parition is:")
-    #partitor.printPartition(bestP)
-    #node_cut = nx.minimum_node_cut(G)
-    #print 'min_node',node_cut
-    #node_cut = nx.all_node_cuts(G)
-    print("The cost of the parition is:")
-    print(partitor.getCostPartition(bestP))
-    '''
-    s = graph.keys()[random.randint(0,len(graph)-1)]
-    t = graph.keys()[random.randint(0,len(graph)-1)]
-    node_cut = minimum_st_node_cut(G,s,t)
-    '''
-    #for n in node_cut:
-    #    print n
-
-    new_graph = copy(graph)
-    #for n in node_cut:
-    #    new_graph = remove_node(n,new_graph)
-    
-    return new_graph
 
 def getCliques(i_map):
 	start = timer()
@@ -820,19 +754,31 @@ def getCliques(i_map):
 
 
 
-def FermiPreCompute2(i_map,load,N,i_map_,fill_in,C,eNBtoOp):
-	#print (C)
-	start = timer()
-	Alloc = Allocate(i_map_,load,N,deepcopy(C))
-	end = timer()
-	print 'Allocation', end - start
+def FermiPreCompute2(i_map,load,N,i_map_,fill_in,C,optoEnb):
+    #print (C)
+    start = timer()
+    Alloc = Allocate(i_map_,load,N,deepcopy(C))
+    end = timer()
+    print 'Allocation', end - start
+    print Alloc
+    start = timer()
+    Assign = Assignment3(Alloc,N,C,i_map,optoEnb)
+    end = timer()
+    print 'Assignment', end - start
+    Res = Assign
 
-	start = timer()
-	Assign = Assignment2(Alloc,N,C,i_map,eNBtoOp)
-	end = timer()
-	print 'Assignment', end - start
-	Res = Restoration(Assign,fill_in,i_map,N)
-	return (Res,Alloc)
+    print Assign
+
+    shre = {}
+    for n in Assign:
+        shre[n] = 0
+        for blk in Assign[n]:
+            shre[n]+=blk[1]-blk[0]+1
+        if (shre[n] != Alloc[n]):
+            print 'wth bro!!'
+
+    #Restoration(Assign,fill_in,i_map,N)
+    return (Res,Alloc)
 
 def FermiPreCompute(i_map,load,N,i_map_,fill_in,C):
 	#print (C)
@@ -870,3 +816,80 @@ def Fermi(i_map,load,N):
 	Res = Restoration(Assign,fill_in,i_map,N)
 
 	return (Res,Alloc)
+
+
+
+
+'''
+import sys
+sys.path.insert(0, './Balanced_Graph_Partitioning')
+from timeit import default_timer as timer
+import random
+from networkx.algorithms.connectivity import minimum_st_node_cut
+from  Balancer_Cut import *
+
+def cutEdges(G,bestP):
+    edgesremoved = set()
+    effectedNodes = set()
+    for p in bestP:
+        par = set(p.keys()) #nx.convert.to_dict_of_dicts(p)
+        for n in par:
+            remEdge = set(G[n]) - par
+            if (len(remEdge) == 0):
+                continue
+            effectedNodes.add(n)
+            for node in remEdge:
+                edgesremoved.add((n,node))
+                effectedNodes.add(node)
+    print 'effected nodes:',len(effectedNodes)
+    print 'edges removed:',len(edgesremoved)/2
+
+
+
+
+def getCut(graph):
+    if (len(graph) < 10):
+        return graph
+    print 'graph size', len(graph)
+    G=nx.Graph()
+    for n in graph:
+        G.add_node(n)
+    for n in graph:
+        for e in graph[n]:
+            G.add_edge(n,e)
+
+    for (u, v) in G.edges():                            # initialize the weight of the edges of the graph
+            G.edge[u][v]['weight'] = 1 #random.randint(0, 10)
+    for n in G.nodes():                                     # initialize the weight of the nodes of the graph
+        G.node[n]['weight'] = 1 #random.random() * 100
+    k = 2
+    epsilon = 1.0
+    n = G.number_of_nodes()
+    print 'epsilon=', epsilon,'n=',n
+    partitor = GraphPartitioning(epsilon, n, k, G)      # create the object and pass it the intial graph
+    bestP = partitor.run()
+    for el in bestP:
+        print 'partition len:',len(el)
+        #print el                                 # run the algorithm and return the best paritition
+    cutEdges(G,bestP)
+    #print("The best parition is:")
+    #partitor.printPartition(bestP)
+    #node_cut = nx.minimum_node_cut(G)
+    #print 'min_node',node_cut
+    #node_cut = nx.all_node_cuts(G)
+    print("The cost of the parition is:")
+    print(partitor.getCostPartition(bestP))
+    
+    s = graph.keys()[random.randint(0,len(graph)-1)]
+    t = graph.keys()[random.randint(0,len(graph)-1)]
+    node_cut = minimum_st_node_cut(G,s,t)
+    
+    #for n in node_cut:
+    #    print n
+
+    new_graph = copy(graph)
+    #for n in node_cut:
+    #    new_graph = remove_node(n,new_graph)
+    
+    return new_graph
+'''
