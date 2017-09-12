@@ -463,22 +463,84 @@ def allocate_sub_chan(v,sub_channels,alloc):
 			break
 	return assigned
 
+def extend_blk(blk,avail,alloc):
+    alloc -= blk[1]-blk[0]+1
+    extendable = False
+    st = blk[0]
+    end = blk[1]
+
+    idx = blk[0]-1
+    while (idx >= 0 and avail[idx]==0 and alloc > 0):
+        avail[idx] = 1
+        extendable = True
+        alloc -= 1
+        idx -= 1
+    if (extendable):
+        st = idx+1
+
+    extendable = False
+    idx = blk[1]+1
+    while (idx < len(avail)  and avail[idx]==0 and alloc > 0):
+        avail[idx] = 1
+        extendable = True
+        alloc -= 1
+        idx += 1
+    if (extendable):
+        end = idx-1
+    return (st,end)
+
+def allocate_pref_sub_chan(v,sub_channels,alloc,avail):
+
+    start = find_unalloc(sub_channels,0)
+    blks_avail = []
+    while (start != -1) :
+        blk = find_unalloc_block(sub_channels,start)
+        if (blk[1]-blk[0]+1) >= alloc :
+            return [(blk[0],blk[0]+alloc-1)]
+        blks_avail.append(blk)
+        start = find_unalloc(sub_channels,blk[1]+1)
+    rem = alloc
+    assigned = []
+    while not (rem == 0 or len(blks_avail)==0):
+        blk = get_max_blk(blks_avail)
+        if (blk[1]-blk[0]+1 < rem):
+            blks_avail.remove(blk)
+            blk = extend_blk(blk,avail,rem)
+            assigned.append(blk)
+            rem -= blk[1]-blk[0]+1
+        else:
+            assigned.append((blk[0],blk[0]+rem-1))
+            rem = 0
+            break
+    return assigned
+
 
 def allocate_sub_chan2(v,sub_channels,alloc,prefSubchannels):
 
-	if (v==6):
-		print sub_channels
-		print prefSubchannels 
-	sub_channels2 = sub_channels[:]
-	assign1 = allocate_sub_chan(v,prefSubchannels,alloc)
-	sub_channels2 = color_channel(assign1,sub_channels2)
-	for blk in assign1:
-		alloc -= blk[1]-blk[0]+1
-	assign2 = allocate_sub_chan(v,sub_channels2,alloc)
-	for blk in assign2:
-		assign1.append(blk)
-	return assign1
-		
+    if (v==4):
+    	print prefSubchannels 
+    sub_channels2 = sub_channels[:]
+    assign1 = allocate_pref_sub_chan(v,prefSubchannels,alloc,sub_channels)
+    sub_channels2 = color_channel(assign1,sub_channels2)
+        
+    if (v == 4):
+        print sub_channels
+        print assign1
+    for i in range(len(assign1)):
+        blk = assign1[i]
+        alloc -= blk[1]-blk[0]+1
+        
+
+
+    if (alloc <= 0):
+        return assign1
+
+
+    assign2 = allocate_sub_chan(v,sub_channels2,alloc)
+    for blk in assign2:
+    	assign1.append(blk)
+    return assign1
+    	
 
 def color_channel(assigned,subchannels,clr=1):
 	clrd = 0
@@ -550,6 +612,7 @@ def Assignment(Alloc,N,C):
 
 def Assignment3(Alloc,N,C,i_map,opEnbs):
 
+    C1= copy(C)
     eNBtoOp = {}
     for e in opEnbs:
         for n in opEnbs[e]:
@@ -573,16 +636,42 @@ def Assignment3(Alloc,N,C,i_map,opEnbs):
     for e in U:
         availSubchannels[e] = [0 for i in range(N)]
 
-    for op in opEnbs:
-	for v in opEnbs[op]:
-		subchannels = availSubchannels[v]
-		Assign[v]=allocate_sub_chan2(v,subchannels,Alloc[v],prefSubchannels[v])
-		for n in opEnbs[op]:
-		    prefSubchannels[n] = color_channel(Assign[v],prefSubchannels[n],0)
-		for i in cliqueAssoc[v]:
-		    for n in C[i]:
-			    availSubchannels[n] = color_channel(Assign[v],availSubchannels[n])
-			    prefSubchannels[n] = color_channel(Assign[v],prefSubchannels[n])
+    starting_points = {}
+    for e in U:
+        starting_points[e] = []
+
+    root = Node(C1[-1])
+    C1.remove(C1[-1])
+    tree = makeTree(root,C1) 
+    q = Q.Queue()
+    q.put(tree)
+
+    while (q.empty() == False):
+
+        curr_node = q.get()
+        for ch in curr_node.children:
+            q.put(ch)
+
+        for v in curr_node.data:
+
+            if v not in U:
+                continue
+            print v
+            op = eNBtoOp[v]
+            subchannels = availSubchannels[v]
+            Assign[v]=allocate_sub_chan2(v,subchannels,Alloc[v],prefSubchannels[v])
+
+            for n in opEnbs[op]:
+                prefSubchannels[n] = color_channel(Assign[v],prefSubchannels[n],0)
+                
+            for i in cliqueAssoc[v]:
+                for n in C[i]:
+            	    availSubchannels[n] = color_channel(Assign[v],availSubchannels[n])
+            	    prefSubchannels[n] = color_channel(Assign[v],prefSubchannels[n])
+                    if eNBtoOp[v] == eNBtoOp[n]:
+                        for blk in Assign[v]:
+                            starting_points[n].append(blk)
+            U.remove(v)
 
     return Assign
 
