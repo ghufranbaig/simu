@@ -1008,7 +1008,7 @@ def main(operators,npo,usersPerOperator,N,l,w):
 	writegeneralInfo(info,enb_coord,ue_list_to_print,UEs,load,i_map,i_map,{},{},G,u_m)
 
 	
-	'''
+	
 	G_info = []
 	results = {}
 	for m in G:
@@ -1019,13 +1019,13 @@ def main(operators,npo,usersPerOperator,N,l,w):
 		comp.write('from Fermi import FermiPreCompute2\n')
 		comp.write('N=100\n')
 		comp.write('G_info = '+str(G_info)+'\n')
-		comp.write('for i in range(len(G_info)):\n')
-		comp.write('\t(i_map,i_map_,fill_in,C,opEnb,load) = G_info[i]\n')
-		comp.write('\tFermiPreCompute2(i_map,load,N,i_map_,fill_in,C,opEnb)\n')
-	'''
+		#comp.write('for i in range(len(G_info)):\n')
+		#comp.write('\t(i_map,i_map_,fill_in,C,opEnb,load) = G_info[i]\n')
+		#comp.write('\tFermiPreCompute2(i_map,load,N,i_map_,fill_in,C,opEnb)\n')
+	
 	for m in G:
 		(i_map,i_map_,fill_in,C) = getCliques(m)
-		FermiPreCompute2(i_map,load,N,i_map_,fill_in,C,opEnb)
+		FermiPreCompute(i_map,load,N,i_map_,fill_in,C)
 		#new_graph = getCut(m)
 		#G2 = connected_graphs(new_graph)
 		#for g in G2:
@@ -1042,16 +1042,16 @@ def main(operators,npo,usersPerOperator,N,l,w):
 
 # Body, generating scripts
 #os.system('mkdir ' + outputDir)
-for z in range(0):
+for z in range(1):
 	l = 200
 	w = 200
 	N = 100
 	#info2.write(str(z)+'\n')
 	operators = 3
-	npo = [40,40,40]
+	npo = [5,5,5]
 	usersPerOperator = {0:50,1:50,2:50}
 	main(operators,npo,usersPerOperator,N,l,w)
-	os.system('mv res/test.py res/test'+str(z)+'.py')
+	#os.system('mv res/test.py res/test'+str(z)+'.py')
 	'''
 	os.system('mv res/utils.jpg res/utils_'+str(z)+'.jpg')
 	os.system('mv res/interferencemap.jpg res/interferencemap_'+str(z)+'.jpg')
@@ -1081,10 +1081,15 @@ for z in range(0):
 	#os.system('mv convergence.txt res/convergence_'+str(z)+'.txt')
 #info2.close()
 #A:0 B:1 C:2 D:3 E:4 F:5 G:6
+'''
 G = {0:[1,3],1:[2,0],2:[1,3,4,5],3:[0,2,6],4:[2,5],5:[2,4],6:[3]}
 load = {0:1,1:1,2:2,3:1,4:2,5:1,6:3}
 opEnb = {0:[0,1,5],1:[4,6],2:[2,3]}
 (i_map,i_map_,fill_in,C) = getCliques(G)
+print C
 N=30
-FermiPreCompute2(i_map,load,N,i_map_,fill_in,C,opEnb)
+#FermiPreCompute2(i_map,load,N,i_map_,fill_in,C,opEnb)
+Assign = FermiPreCompute(i_map,load,N,i_map_,fill_in,C)
+print Assign
 # print g_
+'''
