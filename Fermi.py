@@ -515,26 +515,65 @@ def allocate_pref_sub_chan(v,sub_channels,alloc,avail):
     return assigned
 
 
+def allocate_adj_subchan():
+    max_block_size = 30
+    for blk in strt_points:
+	rev = blk[0]
+	fwd = blk[1]
+	if (fwd-rev+1 >= max_block_size):
+		continue
+	avail_blk = []
+	flag = False
+	end = 0
+	for i in range(rev-1,-1,-1):
+		if (subchannel[i]==1):
+			break
+		flag = True
+		end = i
+		subchannel[i] = 1
+	if (flag):
+		avail_blk.append((rev-1,end))
+		blk_size = avail_blk[-1][0]-avail_blk[-1][1]+1
+		if (blk_size == rem or blk_size - rem >= max_block_size):
+			#assign and return
+			rem 
+		elif (blk_size > rem):
+			remainders [len(avail_blk)-1] = blk_size - rem
+			rem
+	
+	flag = False
+	end = 0
+	for i in range(fwd+1,len(subchannel)):
+		if (subchannel[i]==1):
+			break
+		flag = True
+		end = i
+		subchannel[i] = 1
+	if (flag):
+		avail_blk.append((fwd+1,end))
+			
+
+
+
 def allocate_sub_chan2(v,sub_channels,alloc,prefSubchannels):
 
-    if (v==4):
-    	print prefSubchannels 
+    #if (v==4):
+    #	print prefSubchannels 
     sub_channels2 = sub_channels[:]
     assign1 = allocate_pref_sub_chan(v,prefSubchannels,alloc,sub_channels)
     sub_channels2 = color_channel(assign1,sub_channels2)
         
-    if (v == 4):
-        print sub_channels
-        print assign1
+    #if (v == 4):
+    #    print sub_channels
+    #    print assign1
     for i in range(len(assign1)):
         blk = assign1[i]
         alloc -= blk[1]-blk[0]+1
-        
-
 
     if (alloc <= 0):
         return assign1
 
+    allocate_adj_subchan()
 
     assign2 = allocate_sub_chan(v,sub_channels2,alloc)
     for blk in assign2:
@@ -852,6 +891,7 @@ def FermiPreCompute2(i_map,load,N,i_map_,fill_in,C,optoEnb):
     print Alloc
     start = timer()
     Assign = Assignment3(Alloc,N,C,i_map,optoEnb)
+    #Assign = Assignment(Alloc,N,C)
     end = timer()
     print 'Assignment', end - start
     Res = Assign
