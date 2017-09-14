@@ -629,6 +629,7 @@ def makeTree(root,C):
 
 
 
+
 # Second part of step 2 of Algorithm 1 in Fermi, summarized in the text
 # Assignes the actual channels based on previously calculated shares
 # Input:
@@ -637,8 +638,9 @@ def makeTree(root,C):
 #   C - cliques
 # Output:
 #   Assign - map (nodeID, [channels])
-def Assignment(Alloc,N,C):
-	
+def Assignment1(Alloc,N,C):
+
+	T = find_clique_tree(C)
 	C1 = copy(C)
 	root = Node(C[-1])
 	C.remove(C[-1])
@@ -648,17 +650,19 @@ def Assignment(Alloc,N,C):
 	#subchannels = [0 for i in range(N)]
 
 	availSubchannels = {}
-    	for e in U:
-        	availSubchannels[e] = [0 for i in range(N)]
+	for e in U:
+		availSubchannels[e] = [0 for i in range(N)]
 
 
 	cliqueAssoc = {}
 	for i in range(len(C1)):
-		for v in C1[i]:
+	    for v in C1[i]:
 		    if v in cliqueAssoc:
 			cliqueAssoc[v].append(i)
 		    else:
 			cliqueAssoc[v] = [i]	
+
+	print cliqueAssoc
 
 	q = Q.Queue()
 	q.put(tree)
@@ -679,86 +683,176 @@ def Assignment(Alloc,N,C):
 		#		subchannels = color_channel(Assign[v],subchannels)
 		
 		for v in curr_node.data:
-			print 't',v
+			#print 't',v
 			if v in U:
-				#if v == 2051 or v == 773:
-				#	print it,v
-				subchannels = availSubchannels[v]
-				Assign[v]=allocate_sub_chan(v,subchannels,Alloc[v]) 
-				U.remove(v)
-				#subchannels = color_channel(Assign[v],subchannels)
-				for i in cliqueAssoc[v]:
-					for n in C1[i]:
-				    	    availSubchannels[n] = color_channel(Assign[v],availSubchannels[n])
-		it += 1
-		print ''
+					                
+            #if v == 2051 or v == 773:
+            #	print it,v
+					subchannels = availSubchannels[v]
+					Assign[v]=allocate_sub_chan(v,subchannels,Alloc[v]) 
+					#print 't',v, Assign[v]
+					U.remove(v)
+            #subchannels = color_channel(Assign[v],subchannels)
+					for i in cliqueAssoc[v]:
+						for n in C1[i]:
+								#if n == 14:
+									#print v,Assign[v]
+								availSubchannels[n] = color_channel(Assign[v],availSubchannels[n])
+			it += 1
+			#print ''
 	return Assign
+
+
+def Assignment(Alloc,N,C):
+
+	#print C
+	T = find_clique_tree(C)
+	#print T
+	#C1 = copy(C)
+	U = list(Alloc.keys())
+	Assign = {}
+	#subchannels = [0 for i in range(N)]
+
+	availSubchannels = {}
+	for e in U:
+		availSubchannels[e] = [0 for i in range(N)]
+
+
+	cliqueAssoc = {}
+	for i in range(len(C)):
+	    for v in C[i]:
+		    if v in cliqueAssoc:
+			cliqueAssoc[v].append(i)
+		    else:
+			cliqueAssoc[v] = [i]	
+
+	#print cliqueAssoc
+
+	q = Q.Queue()
+	q.put(T.keys()[0])
+
+	node_done = []
+
+	it = 0
+	tot = len(C)
+	while (q.empty() == False):
+		curr_node = q.get()
+		if curr_node in node_done:
+			continue
+
+		#print 'curr_node',curr_node
+		node_done.append(curr_node)
+		for ch in T[curr_node]:
+			q.put(ch)
+		#print tot,it
+		
+		for v in C[curr_node]:
+			#print 't',v
+			if v in U:
+					subchannels = availSubchannels[v]
+					Assign[v]=allocate_sub_chan(v,subchannels,Alloc[v]) 
+					#print v, Assign[v]
+					U.remove(v)
+					for i in cliqueAssoc[v]:
+						for n in C[i]:
+								availSubchannels[n] = color_channel(Assign[v],availSubchannels[n])
+			it += 1
+		#print ''
+			
+	return Assign
+
+def find_clique_tree(C):
+	C1 = copy(C)
+	G = nx.Graph()
+	for c1 in range(len(C1)):
+		G.add_node(c1)
+	for c1 in range(len(C1)):
+		for c2 in range(len(C1)):
+			if (c1==c2):
+				continue
+			w = -1*len(set(C[c1])&set(C[c2]))
+			if (w!=0):
+				G.add_edge(c1,c2,weight=w)
+
+	T=nx.minimum_spanning_tree(G)
+	tree = {}
+	for e in T:
+		tree[e] = []
+		#print e,T[2]
+		for e2 in T[e]:
+			tree[e].append(e2)
+
+	return tree
+	
 
 def Assignment3(Alloc,N,C,i_map,opEnbs):
 
-    C1= copy(C)
-    eNBtoOp = {}
-    for e in opEnbs:
-        for n in opEnbs[e]:
-            eNBtoOp[n] = e
+	T = find_clique_tree(C)
+	eNBtoOp = {}
+	for e in opEnbs:
+	    for n in opEnbs[e]:
+	        eNBtoOp[n] = e
 
-    Assign = {}
-    U = list(Alloc.keys())
-    cliqueAssoc = {}
-    for i in range(len(C)):
-        for v in C[i]:
-            if v in cliqueAssoc:
-                cliqueAssoc[v].append(i)
-            else:
-                cliqueAssoc[v] = [i]
+	Assign = {}
+	U = list(Alloc.keys())
+	cliqueAssoc = {}
+	for i in range(len(C)):
+	    for v in C[i]:
+	        if v in cliqueAssoc:
+	            cliqueAssoc[v].append(i)
+	        else:
+	            cliqueAssoc[v] = [i]
 
-    prefSubchannels = {}
-    for e in U:
-    	prefSubchannels[e] = [1 for i in range(N)]
+	prefSubchannels = {}
+	for e in U:
+		prefSubchannels[e] = [1 for i in range(N)]
 
-    availSubchannels = {}
-    for e in U:
-        availSubchannels[e] = [0 for i in range(N)]
+	availSubchannels = {}
+	for e in U:
+	    availSubchannels[e] = [0 for i in range(N)]
 
-    starting_points = {}
-    for e in U:
-        starting_points[e] = []
-
-    root = Node(C1[-1])
-    C1.remove(C1[-1])
-    tree = makeTree(root,C1) 
-    q = Q.Queue()
-    q.put(tree)
-
-    while (q.empty() == False):
-
-        curr_node = q.get()
-        for ch in curr_node.children:
-            q.put(ch)
-
-        for v in curr_node.data:
-
-            if v not in U:
-                continue
-            #print v
-            op = eNBtoOp[v]
-            subchannels = availSubchannels[v]
-            Assign[v]=allocate_sub_chan2(v,subchannels,Alloc[v],prefSubchannels[v],starting_points[v])
-
-            for n in opEnbs[op]:
-                prefSubchannels[n] = color_channel(Assign[v],prefSubchannels[n],0)
-                
-            for i in cliqueAssoc[v]:
-                for n in C[i]:
-            	    availSubchannels[n] = color_channel(Assign[v],availSubchannels[n])
-            	    prefSubchannels[n] = color_channel(Assign[v],prefSubchannels[n])
-                    if eNBtoOp[v] == eNBtoOp[n]:
-                        for blk in Assign[v]:
-                            starting_points[n].append(blk)
-            U.remove(v)
+	starting_points = {}
+	for e in U:
+	    starting_points[e] = []
 
 
-    return Assign
+	q = Q.Queue()
+	q.put(T.keys()[0])
+
+	node_done=[]
+
+	while (q.empty() == False):
+
+		curr_node = q.get()
+		if curr_node in node_done:
+			continue
+		node_done.append(curr_node)
+		for ch in T[curr_node]:
+			q.put(ch)
+
+		for v in C[curr_node]:
+
+			if v not in U:
+			    continue
+			#print v
+			op = eNBtoOp[v]
+			subchannels = availSubchannels[v]
+			Assign[v]=allocate_sub_chan2(v,subchannels,Alloc[v],prefSubchannels[v],starting_points[v])
+
+			for n in opEnbs[op]:
+				prefSubchannels[n] = color_channel(Assign[v],prefSubchannels[n],0)
+
+			for i in cliqueAssoc[v]:
+				for n in C[i]:
+					availSubchannels[n] = color_channel(Assign[v],availSubchannels[n])
+					prefSubchannels[n] = color_channel(Assign[v],prefSubchannels[n])
+					if eNBtoOp[v] == eNBtoOp[n]:
+						for blk in Assign[v]:
+						    starting_points[n].append(blk)
+			U.remove(v)
+
+
+	return Assign
 
 
 def Assignment2(Alloc,N,C,i_map,eNBtoOp):
@@ -927,9 +1021,11 @@ def getCliques(i_map):
 
 def sanity_check(Alloc,Assign,C,N):
 	print ('Sanity Check')
-	print (len(C))
+	#print (len(C))
 	allc_err = 0
 	assn_err = 0
+	err_less = 0
+	err_more = 0
 	for c in C:
 		totAlloc = 0
 		sc = [0 for i in range(N)]
@@ -956,12 +1052,14 @@ def sanity_check(Alloc,Assign,C,N):
 		    shre[n]+=blk[1]-blk[0]+1
 		if (shre[n] < Alloc[n]):
 		    print 'Node',n, Alloc[n],shre[n],'Less'
+		    err_less += 1
 		if (shre[n] > Alloc[n]):
 		    print 'Node',n, Alloc[n],shre[n],'More'
+		    err_more += 1
 
 
-	print allc_err,assn_err
-	return allc_err,assn_err
+	print allc_err,assn_err,err_less,err_more
+	return allc_err,assn_err,err_less,err_more
 
 
 def FermiPreCompute2(i_map,load,N,i_map_,fill_in,C,optoEnb):
@@ -1002,23 +1100,9 @@ def FermiPreCompute(i_map,load,N,i_map_,fill_in,C):
 	end = timer()
 	print 'Assignment', end - start
 
-	print C
-	n = set()
-	for c in C:
-		if 14 in c:
-			for e in c:
-				n.add(e)
-	sc = [0 for i in range(N)]
-	for e in n:
-		for blk in Assign[e]:
-			for i in range(blk[0],blk[1]+1):
-				sc[i] = 1
-	print sc
-
 	#Res = Restoration(Assign,fill_in,i_map,N)
 	Res = Assign
 	sanity_check(Alloc,Assign,C,N)
-	print ''
 	return (Res,Alloc)
 
 def Fermi(i_map,load,N):
