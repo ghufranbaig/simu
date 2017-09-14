@@ -6,7 +6,7 @@ from copy import copy
 
 
 max_BW_chan = 20
-allocation_granularity = 5
+chan_size = 5
 
 #Tree class
 class Node(object):
@@ -347,6 +347,12 @@ def getMaxRank(U,C,L,cliqueAssoc):
                                 max_r = j
 	return max_r
 
+def getMaxPossibleAlloc(cliqueAssoc,R):
+	e_m = 100
+	for j in cliqueAssoc:
+		if R[j] < e_m:
+			e_m = R[j]
+	return e_m
 # Calculate Fermi allocation as described in the paper as Algorithm 2
 # and also the first part of step 2 of Algorithm 1 in the paper
 # Input:
@@ -356,7 +362,7 @@ def getMaxRank(U,C,L,cliqueAssoc):
 #   C - set of maximal cliques, array of cliques, each being an array of belonging nodes
 # Output:
 #   Alloc - share per eNodeB, map (eNodeB_ID, share)
-def Allocate (G,load,N,C):
+def Allocate (G,load,N,C,cliqueAssoc):
         V = list(G.keys())
         U = V[:]
         A = {}
@@ -368,43 +374,84 @@ def Allocate (G,load,N,C):
                         sum_load += load[i]
                 L.append(sum_load)
                 R.append(N)
-        
-	cliqueAssoc = {}
-	for i in range(len(C)):
-		for v in C[i]:
-			if v in cliqueAssoc:
-				cliqueAssoc[v].append(i)
-			else:
-				cliqueAssoc[v] = [i]
 
 	maxRank = getMaxRank(U,C,L,cliqueAssoc)
+
+	
         #for i in U:
         #        A[i]=init_alloc (i,C,load,R,cliqueAssoc)
+
+	Alloc = {}
+	max_channels = {}
+	for e in U:
+		max_channels[e] = max_BW_chan/chan_size
+		Alloc[e] = 0
         
         numm = 0
-        Alloc = {}
-        while len(U) > 0:
-                #print len(U)
-                v_0 = U[maxRank]
-                A[v_0] = init_alloc (v_0,C,load,R,cliqueAssoc,L)
-		#print (A)
-                Alloc[v_0]=int(A[v_0])
-                U.remove(v_0)
+        
+	load_ = copy(load)
+	zero_nodes = []
+	#cliqueAssoc. = copy(cliqueAssoc_)
+	for i in range(5):
+		round2Nodes = []
+		for j in range(len(C)):
+		        sum_load = 0
+		        for i in C[j]:
+		                sum_load += load_[i]
+		        L[j] = (sum_load)
+		print 'len U',len(U)
+		while len(U) > 0:
+		        #print len(U)
+		        v_0 = U[maxRank]
+		        A[v_0] = min(init_alloc (v_0,C,load,R,cliqueAssoc,L),max_channels[v_0])
+			
+				
+			#print (A)
+		        Alloc[v_0]+=int(A[v_0])
 
-                #next_max_rank = getMaxRank(U,C,L,cliqueAssoc)
-                for j in cliqueAssoc[v_0]:
-                                R[j] -= A[v_0]
-                                C[j].remove(v_0)
-                                L[j] -= load[v_0]
-                
-                maxRank = getMaxRank(U,C,L,cliqueAssoc)
+			if A[v_0] == 0 and load[v_0] == 0:
+				zero_nodes.append(v_0)
+			elif (Alloc[v_0] == max_BW_chan/chan_size):
+				load_[v_0] = 0
+			elif (Alloc[v_0] < max_BW_chan/chan_size and A[v_0] > 0 and load[v_0] != 0):
+				round2Nodes.append(v_0)
+			max_channels[v_0] = max_BW_chan/chan_size - Alloc[v_0] 
 
-                #if (maxRank != next_max_rank):
-                    #print 'error!!!'
-                #    numm += 1
-                                
-                #for i in U:
-                #        A[i]=init_alloc (i,C,load,R,cliqueAssoc)
+		        U.remove(v_0)
+			
+		        #next_max_rank = getMaxRank(U,C,L,cliqueAssoc)
+		        for j in cliqueAssoc[v_0]:
+		                        R[j] -= A[v_0]
+		                        #C[j].remove(v_0)
+		                        L[j] -= load[v_0]
+		        
+		        maxRank = getMaxRank(U,C,L,cliqueAssoc)
+		U = round2Nodes
+	#print R
+	zero_nodes = copy(zero_nodes)
+	for i in range(4):
+		print 'zero node len',len(zero_nodes)
+		for e in zero_nodes:
+			if (getMaxPossibleAlloc(cliqueAssoc[e],R) > 0):
+				Alloc[e]+=1
+				for j in cliqueAssoc[e]:
+					R[j] -= 1
+			#else:
+				#zero_nodes.remove(e)
+
+	for e in zero_nodes:
+		if (Alloc[e]!=0):
+			print Alloc[e] 
+	print '---------------------------------'
+	for e in Alloc:
+		e_m = 100
+		if Alloc[e] < 4 and Alloc[e] > 4:
+			for j in cliqueAssoc[e]:
+				if R[j] < e_m:
+					e_m = R[j]
+			if (e_m != 0):
+				print e,'error' 
+	print '---------------------------------'
                 
         #print 'times err occurred:', numm
         return Alloc
@@ -505,10 +552,11 @@ def allocate_pref_sub_chan(v,sub_channels,alloc,avail):
     blks_avail = []
     while (start != -1) :
         blk = find_unalloc_block(sub_channels,start)
-        if (blk[1]-blk[0]+1) >= alloc :
+        if (blk[1]-blk[0]+1) >= alloc:
             return [(blk[0],blk[0]+alloc-1)]
         blks_avail.append(blk)
         start = find_unalloc(sub_channels,blk[1]+1)
+    #return ([])
     rem = alloc
     assigned = []
     while not (rem == 0 or len(blks_avail)==0):
@@ -582,24 +630,39 @@ def allocate_adj_subchan(strt_points,subc,rem):
 
 def allocate_sub_chan2(v,sub_channels,alloc,prefSubchannels,strt_points):
 
+    if alloc == 0:
+	return []
+
     assign1 = []
-   
+    prefSubchannels = 1*np.invert(np.logical_and(np.invert(np.array(sub_channels,dtype=bool)), np.invert(np.array(prefSubchannels,dtype=bool))))
+    a = 1*np.array(sub_channels,dtype=bool) 
+    #print prefSubchannels
+    #print a
+    #if not np.array_equal(prefSubchannels,a):
+    #	print 'at least found one' 
+    #a = np.array(sub_channels,dtype=bool) 
+    #b = np.array(prefSubchannels,dtype=bool) 
+    #if not np.array_equal(np.logical_and(a,b),b):
+    #	print 'problem with pref and sub' 
+
+
     sub_channels2 = sub_channels[:]
-    #assign1 = allocate_pref_sub_chan(v,prefSubchannels,alloc,sub_channels)
+    assign1 = allocate_pref_sub_chan(v,prefSubchannels,alloc,sub_channels)
     sub_channels2 = color_channel(assign1,sub_channels2)
         
     
     for i in range(len(assign1)):
         blk = assign1[i]
         alloc -= blk[1]-blk[0]+1
+	#print blk
 
     if (alloc <= 0):
         return assign1
 
-    #adj_assign = allocate_adj_subchan(strt_points,sub_channels2,alloc)
-    #if (adj_assign != (-1,-1)):
-	#assign1.append(adj_assign)
-	#return assign1
+    adj_assign = allocate_adj_subchan(strt_points,sub_channels2,alloc)
+    if (adj_assign != (-1,-1)):
+	assign1.append(adj_assign)
+	return assign1
 	
 
     assign2 = allocate_sub_chan(v,sub_channels2,alloc)
@@ -703,7 +766,7 @@ def Assignment1(Alloc,N,C):
 	return Assign
 
 
-def Assignment(Alloc,N,C):
+def Assignment(Alloc,N,C,cliqueAssoc):
 
 	#print C
 	T = find_clique_tree(C)
@@ -717,14 +780,6 @@ def Assignment(Alloc,N,C):
 	for e in U:
 		availSubchannels[e] = [0 for i in range(N)]
 
-
-	cliqueAssoc = {}
-	for i in range(len(C)):
-	    for v in C[i]:
-		    if v in cliqueAssoc:
-			cliqueAssoc[v].append(i)
-		    else:
-			cliqueAssoc[v] = [i]	
 
 	#print cliqueAssoc
 
@@ -785,7 +840,7 @@ def find_clique_tree(C):
 	return tree
 	
 
-def Assignment3(Alloc,N,C,i_map,opEnbs):
+def Assignment3(Alloc,N,C,i_map,opEnbs,cliqueAssoc):
 
 	T = find_clique_tree(C)
 	eNBtoOp = {}
@@ -795,13 +850,7 @@ def Assignment3(Alloc,N,C,i_map,opEnbs):
 
 	Assign = {}
 	U = list(Alloc.keys())
-	cliqueAssoc = {}
-	for i in range(len(C)):
-	    for v in C[i]:
-	        if v in cliqueAssoc:
-	            cliqueAssoc[v].append(i)
-	        else:
-	            cliqueAssoc[v] = [i]
+	
 
 	prefSubchannels = {}
 	for e in U:
@@ -845,7 +894,7 @@ def Assignment3(Alloc,N,C,i_map,opEnbs):
 			for i in cliqueAssoc[v]:
 				for n in C[i]:
 					availSubchannels[n] = color_channel(Assign[v],availSubchannels[n])
-					prefSubchannels[n] = color_channel(Assign[v],prefSubchannels[n])
+					#prefSubchannels[n] = color_channel(Assign[v],prefSubchannels[n])
 					if eNBtoOp[v] == eNBtoOp[n]:
 						for blk in Assign[v]:
 						    starting_points[n].append(blk)
@@ -1005,6 +1054,34 @@ def ReclaimSC(Assign,N,C,IsClass1,i_map):
 
 	return Reclaim
 from timeit import default_timer as timer
+import numpy as np
+
+def calcOpp(Assign,C,cliqueAssoc,optoEnb,N):
+	enbToOp = {}
+	ops = len(optoEnb)
+	chan_op = {}
+	print (len(C))
+	for c in range(len(C)):
+		chan_op[c] = {}
+		for op in optoEnb:
+			chan_op[c][op] = [0 for i in range(N)]
+	for op in optoEnb:
+		for e in optoEnb[op]:
+			enbToOp[e] = op
+			for c in cliqueAssoc[e]:
+				chan_op[c][op] = color_channel(Assign[e],chan_op[c][op])
+	opp = {}
+	for e in Assign:
+		a = np.array(chan_op[cliqueAssoc[e][0]][enbToOp[e]], dtype=bool)
+		for c in cliqueAssoc[e]:
+			a = np.logical_and(a, np.array(chan_op[c][enbToOp[e]], dtype=bool)) 
+		opp[e] = 1*a
+
+	return opp
+		
+			
+		
+	
 
 def getCliques(i_map):
 	start = timer()
@@ -1035,7 +1112,7 @@ def sanity_check(Alloc,Assign,C,N):
 				for i in range(blk[0],blk[1]+1):
 					if (sc[i] == 1):
 						assn_err += 1
-						print 'Assignment ERR!!!'
+						#print 'Assignment ERR!!!'
 						#print c
 						#for e in c:
 						#	print e,Assign[e]
@@ -1063,46 +1140,72 @@ def sanity_check(Alloc,Assign,C,N):
 
 
 def FermiPreCompute2(i_map,load,N,i_map_,fill_in,C,optoEnb):
-    #print (C)
-    start = timer()
-    Alloc = Allocate(i_map_,load,N,deepcopy(C))
-    end = timer()
+	#print (C)
+	#print optoEnb
+	cliqueAssoc = {}
+	for i in range(len(C)):
+		for v in C[i]:
+			if v in cliqueAssoc:
+				cliqueAssoc[v].append(i)
+			else:
+				cliqueAssoc[v] = [i]
 
-    
-		
-    #print 'Allocation', end - start
-    #print Alloc
-    start = timer()
-    Assign = Assignment3(Alloc,N,C,i_map,optoEnb)
-    #Assign = Assignment(Alloc,N,C)
-    end = timer()
-    print 'Assignment', end - start
-    Res = Assign
 
-    #print Assign
-    sanity_check(Alloc,Assign,C,N)
+	start = timer()
+	Alloc = Allocate(i_map_,load,N,deepcopy(C),cliqueAssoc)
+	end = timer()
 
-    #Restoration(Assign,fill_in,i_map,N)
-    return (Res,Alloc)
 
-def FermiPreCompute(i_map,load,N,i_map_,fill_in,C):
+	
+	print 'Allocation', end - start
+	#print Alloc
+	start = timer()
+	Assign = Assignment3(Alloc,N,deepcopy(C),i_map,optoEnb,cliqueAssoc)
+	#Assign = Assignment(Alloc,N,C)
+	end = timer()
+	print 'Assignment', end - start
+	Res = Assign
+
+	#print Assign
+	sanity_check(Alloc,Assign,C,N)
+	#opp = calcOpp(Assign,C,cliqueAssoc,optoEnb,N)
+	#for e in Alloc:
+	#	if Alloc[e] > 2:
+	#		print opp[e]
+
+	#Restoration(Assign,fill_in,i_map,N)
+	return (Res,Alloc)
+
+def FermiPreCompute(i_map,load,N,i_map_,fill_in,C,optoEnb):
+	cliqueAssoc = {}
+	for i in range(len(C)):
+		for v in C[i]:
+			if v in cliqueAssoc:
+				cliqueAssoc[v].append(i)
+			else:
+				cliqueAssoc[v] = [i]
 	#print (C)
 	start = timer()
-	Alloc = Allocate(i_map_,load,N,deepcopy(C))
+	Alloc = Allocate(i_map_,load,N,deepcopy(C),cliqueAssoc)
 	end = timer()
 	print 'Allocation', end - start
 	#print Alloc
 
-	
+
 	#print(Alloc)
 	start = timer()
-	Assign = Assignment(Alloc,N,deepcopy(C))
+	Assign = Assignment(Alloc,N,deepcopy(C),cliqueAssoc)
 	end = timer()
 	print 'Assignment', end - start
 
 	#Res = Restoration(Assign,fill_in,i_map,N)
 	Res = Assign
 	sanity_check(Alloc,Assign,C,N)
+
+	opp = calcOpp(Assign,C,cliqueAssoc,optoEnb,N)
+	for e in Alloc:
+		if Alloc[e] > 2:
+			print opp[e]
 	return (Res,Alloc)
 
 def Fermi(i_map,load,N):
