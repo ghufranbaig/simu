@@ -363,87 +363,103 @@ def getMaxPossibleAlloc(cliqueAssoc,R):
 # Output:
 #   Alloc - share per eNodeB, map (eNodeB_ID, share)
 def Allocate (G,load,N,C,cliqueAssoc):
-        V = list(G.keys())
-        U = V[:]
-        A = {}
-        L = []
-        R = []
-        for j in range(len(C)):
-                sum_load = 0
-                for i in C[j]:
-                        sum_load += load[i]
-                L.append(sum_load)
-                R.append(N)
+
+	zero_nodes = []
+	for e in load:
+		if load[e]==0:
+			load[e]=1
+			zero_nodes.append(e)
+
+	V = list(G.keys())
+	U = V[:]
+	A = {}
+	L = []
+	R = []
+	for j in range(len(C)):
+		sum_load = 0
+		for i in C[j]:
+		        sum_load += load[i]
+		L.append(sum_load)
+		R.append(N)
 
 	maxRank = getMaxRank(U,C,L,cliqueAssoc)
 
-	
-        #for i in U:
-        #        A[i]=init_alloc (i,C,load,R,cliqueAssoc)
+
+	#for i in U:
+	#        A[i]=init_alloc (i,C,load,R,cliqueAssoc)
 
 	Alloc = {}
 	max_channels = {}
 	for e in U:
 		max_channels[e] = max_BW_chan/chan_size
 		Alloc[e] = 0
-        
-        numm = 0
-        
-	load_ = copy(load)
-	zero_nodes = []
+
 	#cliqueAssoc. = copy(cliqueAssoc_)
-	for i in range(5):
+	for k in range(4):
 		round2Nodes = []
 		for j in range(len(C)):
 		        sum_load = 0
 		        for i in C[j]:
-		                sum_load += load_[i]
-		        L[j] = (sum_load)
+		                sum_load += load[i]
+		        L[j] = sum_load
 		print 'len U',len(U)
-		while len(U) > 0:
-		        #print len(U)
-		        v_0 = U[maxRank]
-		        A[v_0] = min(init_alloc (v_0,C,load,R,cliqueAssoc,L),max_channels[v_0])
-			
-				
-			#print (A)
-		        Alloc[v_0]+=int(A[v_0])
 
-			if A[v_0] == 0 and load[v_0] == 0:
-				zero_nodes.append(v_0)
-			elif (Alloc[v_0] == max_BW_chan/chan_size):
-				load_[v_0] = 0
-			elif (Alloc[v_0] < max_BW_chan/chan_size and A[v_0] > 0 and load[v_0] != 0):
+		while len(U) > 0:
+	        #print len(U)
+			v_0 = U[maxRank]
+			A[v_0] = min(init_alloc (v_0,C,load,R,cliqueAssoc,L),max_channels[v_0])
+			if (k>3 and A[v_0]==0):
+				getMaxPossibleAlloc(cliqueAssoc[v_0],R)
+			Alloc[v_0]+=int(A[v_0])
+
+			U.remove(v_0)
+			
+			for j in cliqueAssoc[v_0]:
+				R[j] -= A[v_0]
+				#C[j].remove(v_0)
+				L[j] -= load[v_0]
+
+			if (Alloc[v_0] == max_BW_chan/chan_size):
+				load[v_0] = 0
+			elif (Alloc[v_0] < max_BW_chan/chan_size and A[v_0] > 0):
+				round2Nodes.append(v_0)
+			elif (A[v_0] == 0 and getMaxPossibleAlloc(cliqueAssoc[v_0],R)>0):
 				round2Nodes.append(v_0)
 			max_channels[v_0] = max_BW_chan/chan_size - Alloc[v_0] 
 
-		        U.remove(v_0)
-			
-		        #next_max_rank = getMaxRank(U,C,L,cliqueAssoc)
-		        for j in cliqueAssoc[v_0]:
-		                        R[j] -= A[v_0]
-		                        #C[j].remove(v_0)
-		                        L[j] -= load[v_0]
-		        
-		        maxRank = getMaxRank(U,C,L,cliqueAssoc)
+			maxRank = getMaxRank(U,C,L,cliqueAssoc)
 		U = round2Nodes
-	#print R
-	zero_nodes = copy(zero_nodes)
-	for i in range(4):
+	while(1):
+		flag = False
+		for e in U:
+			if (getMaxPossibleAlloc(cliqueAssoc[e],R)>0):
+				flag = True
+				Alloc[e]+=1
+				for j in cliqueAssoc[e]:
+					R[j]-=1
+		if (not flag):
+			break
+		#print R
+		'''
+		zero_nodes = copy(zero_nodes)
+		for i in range(4):
 		print 'zero node len',len(zero_nodes)
 		for e in zero_nodes:
 			if (getMaxPossibleAlloc(cliqueAssoc[e],R) > 0):
+				print 'found zero node'
 				Alloc[e]+=1
 				for j in cliqueAssoc[e]:
 					R[j] -= 1
 			#else:
 				#zero_nodes.remove(e)
 
-	for e in zero_nodes:
+
+		for e in zero_nodes:
 		if (Alloc[e]!=0):
 			print Alloc[e] 
-	print '---------------------------------'
-	for e in Alloc:
+
+		print '---------------------------------'
+		for e in Alloc:
 		e_m = 100
 		if Alloc[e] < 4 and Alloc[e] > 4:
 			for j in cliqueAssoc[e]:
@@ -451,10 +467,11 @@ def Allocate (G,load,N,C,cliqueAssoc):
 					e_m = R[j]
 			if (e_m != 0):
 				print e,'error' 
-	print '---------------------------------'
-                
-        #print 'times err occurred:', numm
-        return Alloc
+		print '---------------------------------'
+		'''
+	        
+	#print 'times err occurred:', numm
+	return Alloc
 
 
 # Assignment & Restoration
@@ -575,7 +592,7 @@ def allocate_pref_sub_chan(v,sub_channels,alloc,avail):
 
 def allocate_adj_subchan(strt_points,subc,rem):
 	subchannel = copy(subc)
-	max_block_size = 30
+	max_block_size = 4
 	remainders = {}
 	for blk in strt_points:
 		rev = blk[0]
@@ -625,9 +642,6 @@ def allocate_adj_subchan(strt_points,subc,rem):
 	return blk_chosen
     
 			
-
-
-
 def allocate_sub_chan2(v,sub_channels,alloc,prefSubchannels,strt_points):
 
     if alloc == 0:
@@ -659,10 +673,10 @@ def allocate_sub_chan2(v,sub_channels,alloc,prefSubchannels,strt_points):
     if (alloc <= 0):
         return assign1
 
-    adj_assign = allocate_adj_subchan(strt_points,sub_channels2,alloc)
-    if (adj_assign != (-1,-1)):
-	assign1.append(adj_assign)
-	return assign1
+	adj_assign = allocate_adj_subchan(strt_points,sub_channels2,alloc)
+	if (adj_assign != (-1,-1)):
+		assign1.append(adj_assign)
+		return assign1
 	
 
     assign2 = allocate_sub_chan(v,sub_channels2,alloc)
@@ -1056,11 +1070,19 @@ def ReclaimSC(Assign,N,C,IsClass1,i_map):
 from timeit import default_timer as timer
 import numpy as np
 
+def largest_block(i,a):
+    lenn = 0 
+    for j in range(i,len(a)):
+        if a[j]==0:
+            break
+        lenn+=1
+    return lenn
+
 def calcOpp(Assign,C,cliqueAssoc,optoEnb,N):
 	enbToOp = {}
 	ops = len(optoEnb)
 	chan_op = {}
-	print (len(C))
+	#print (len(C))
 	for c in range(len(C)):
 		chan_op[c] = {}
 		for op in optoEnb:
@@ -1071,13 +1093,24 @@ def calcOpp(Assign,C,cliqueAssoc,optoEnb,N):
 			for c in cliqueAssoc[e]:
 				chan_op[c][op] = color_channel(Assign[e],chan_op[c][op])
 	opp = {}
+	oppAlloc = {}
+	totAvail = {}
 	for e in Assign:
 		a = np.array(chan_op[cliqueAssoc[e][0]][enbToOp[e]], dtype=bool)
 		for c in cliqueAssoc[e]:
 			a = np.logical_and(a, np.array(chan_op[c][enbToOp[e]], dtype=bool)) 
 		opp[e] = 1*a
+		totAvail[e]=sum(opp[e])
+		#print opp[e]
+		maxL=0
+		for i in range(len(a)):
+		    l = largest_block(i,opp[e])
+		    if l>maxL:
+		        maxL = l
+		#print 'maxl',maxL
+		oppAlloc[e] = maxL
 
-	return opp
+	return (opp,oppAlloc,totAvail)
 		
 			
 		
@@ -1168,7 +1201,17 @@ def FermiPreCompute2(i_map,load,N,i_map_,fill_in,C,optoEnb):
 
 	#print Assign
 	sanity_check(Alloc,Assign,C,N)
-	#opp = calcOpp(Assign,C,cliqueAssoc,optoEnb,N)
+	(opp,oppAlloc,totAvail) = calcOpp(Assign,C,cliqueAssoc,optoEnb,N)
+	inc = 0
+	addedBW = 0
+	for e in Alloc:
+		if Alloc[e] < oppAlloc[e] and oppAlloc[e] <= 4:
+			inc += 1
+			addedBW += oppAlloc[e]-Alloc[e]
+	print 'inc',inc
+	print 'addedBW',addedBW
+	print 'Opp',sum(oppAlloc.values())
+	print 'Opp2',sum(totAvail.values())
 	#for e in Alloc:
 	#	if Alloc[e] > 2:
 	#		print opp[e]
@@ -1202,10 +1245,15 @@ def FermiPreCompute(i_map,load,N,i_map_,fill_in,C,optoEnb):
 	Res = Assign
 	sanity_check(Alloc,Assign,C,N)
 
-	opp = calcOpp(Assign,C,cliqueAssoc,optoEnb,N)
+	(opp,oppAlloc,totAvail) = calcOpp(Assign,C,cliqueAssoc,optoEnb,N)
+	inc = 0
 	for e in Alloc:
-		if Alloc[e] > 2:
-			print opp[e]
+		if Alloc[e]<oppAlloc[e] and oppAlloc[e]<=4:
+			inc +=1
+	print 'inc',inc
+	print 'Opp',sum(oppAlloc.values())
+	print 'Opp2',sum(totAvail.values())
+
 	return (Res,Alloc)
 
 def Fermi(i_map,load,N):
