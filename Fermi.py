@@ -884,6 +884,8 @@ def Assignment3(Alloc,N,C,i_map,opEnbs,cliqueAssoc):
 
 	node_done=[]
 
+
+
 	while (q.empty() == False):
 
 		curr_node = q.get()
@@ -1076,7 +1078,7 @@ def largest_block(i,a):
         if a[j]==0:
             break
         lenn+=1
-    return lenn
+    return lenn,j-1
 
 def calcOpp(Assign,C,cliqueAssoc,optoEnb,N):
 	enbToOp = {}
@@ -1104,7 +1106,7 @@ def calcOpp(Assign,C,cliqueAssoc,optoEnb,N):
 		#print opp[e]
 		maxL=0
 		for i in range(len(a)):
-		    l = largest_block(i,opp[e])
+		    l,j = largest_block(i,opp[e])
 		    if l>maxL:
 		        maxL = l
 		#print 'maxl',maxL
@@ -1113,7 +1115,45 @@ def calcOpp(Assign,C,cliqueAssoc,optoEnb,N):
 	return (opp,oppAlloc,totAvail)
 		
 			
-		
+def getMaxChann(Assign,N):
+    assign_grid = {}
+    AssignChanns = {}
+    for e in Assign:
+        assign_grid[e] = [0 for i in range(N)]
+        AssignChanns = []
+    for e in Assign:
+        blk = (-1,-1)
+        maxL = 0
+        for i in range(N):
+            l,j = largest_block(i,Assign[e])
+            if l>maxL:
+                maxL = l
+                blk=(i,j)
+        if maxL != 0:
+            for k in range(blk[0],blk[1]+1):
+                assign_grid[e][k] = 1
+                AssignChanns[e].append[k]
+    return (assign_grid,AssignChanns)
+
+def getInterferingAPFromSameOp(AssignChanns,C,cliqueAssoc,optoEnb):
+    enbToOp = {}
+    APOnChan = {}
+    for op in optoEnb:
+        for e in optoEnb[op]:
+            enbToOp[e] = op
+
+    for e in AssignChanns:
+        APOnChan[e]={}
+        for ch in AssignChanns[e]:
+            APOnChan[e][ch] = []
+            for c in cliqueAssoc[e]:
+                for e1 in C[c]:
+                    if (optoEnb[e]==optoEnb[e1]):
+                            if ch in AssignChanns[e1]:
+                                APOnChan[e][ch].append[e1]
+    return  APOnChan
+
+
 	
 
 def getCliques(i_map):
@@ -1182,6 +1222,7 @@ def FermiPreCompute2(i_map,load,N,i_map_,fill_in,C,optoEnb):
 				cliqueAssoc[v].append(i)
 			else:
 				cliqueAssoc[v] = [i]
+
 
 
 	start = timer()
