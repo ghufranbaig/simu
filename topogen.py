@@ -479,6 +479,9 @@ class Operator:
 			self.UEs[i].eNB = self.eNBs[temp_assign[u]].ID
 			self.eNBs[temp_assign[u]].UEs.append(self.UEs[i])
 			i += 1
+	def generate_user_activity (self):
+		for u in self.UEs:
+			u.genActivity()
 
 	def getData(self):
 		operator_enbs = {}
@@ -504,382 +507,49 @@ class Operator:
 
 class eNodeB:
 
-    def __init__(self, enb_id, coord, operator):
-    	self.ID = enb_id
-        self.coords = coord
-        self.operator = operator    # creates a new empty list for each dog
-        self.UEs = []
+	def __init__(self, enb_id, coord, operator):
+		self.ID = enb_id
+		self.coords = coord
+		self.operator = operator    # creates a new empty list for each dog
+		self.UEs = []
+		self.myChans = []
+		self.sharedChans = []
 
-    def add_ue(self, ue):
-        self.UEs.append(ue)
+	def add_ue(self, ue):
+		self.UEs.append(ue)
+
+	def set_channels(chans):
+			self.myChans = chans
+
+	def set_oppChannels():
+			self.sharedChans = chans
+
 
 class UserE:
 
-    def __init__(self, ue_id, coord, operator):
-    	self.ID = ue_id
-        self.coords = coord
-        self.operator = operator
-        self.eNB = -1
-        self.activity = []
+	def __init__(self, ue_id, coord, operator):
+		self.ID = ue_id
+		self.coords = coord
+		self.operator = operator
+		self.eNB = -1
+		self.activity = []
+		self.totData = 0
 
 	def assign_eNB(self, enb_id):
 		self.eNB = enb_id
 
-
-def run_ideal (UEs,u_m,G,N,UE_activity,info,comp,timesteps,Rx_power):
-	activity = []
-	for i in range(timesteps):
-		load = {}
-
-		for enb in UEs:
-			active_ue = 0
-			for j in range(len(UEs[enb])):
-				if (UE_activity[enb][j][i] == 1):
-					active_ue += 1
-			load[enb] = active_ue
-		#print load
-
-		(Assign_FERMI,FERMIshare,assign_grid) = FermiAllocations(UEs,u_m,deepcopy(G),load,N,info,comp, True)
-		activity.append(run_single (UEs,N,UE_activity,Rx_power,assign_grid,i))
-
-	return process_activity(activity)
-
-	#print activity
-
-def run_baseline1 (UEs,u_m,G,N,UE_activity,info,comp,timesteps,Rx_power):
-	activity = []
-	for i in range(timesteps):
-		load = {}
-
-		for enb in UE_activity:
-			load[enb] = 1
-		#print load
-
-		(Assign_FERMI,FERMIshare,assign_grid) = FermiAllocations(UEs,u_m,deepcopy(G),load,N,info,comp)
-		activity.append(run_single (UEs,N,UE_activity,Rx_power,assign_grid,i))
-
-	return process_activity(activity)
-	#print activity
-
-def run_baseline2 (UEs,u_m,G,N,UE_activity,info,comp,timesteps,Rx_power):
-	activity = []
-	assign_grid = {}
-	for i in range(timesteps):
-		for enb in UEs:
-			assign_grid[enb] = [1]*N
-
-		activity.append(run_single (UEs,N,UE_activity,Rx_power,assign_grid,i))
-
-	#print activity[0]
-	return process_activity(activity)
-
-def run_creditBased1a (UEs,u_m,G,N,UE_activity,info,comp,timesteps,Rx_power,Operators):
-	activity = []
-
-	credit = {}
-	for op in Operators:
-		credit[op] = 100.0
-	load = {}
-	op_active_users = {}
-	for i in range(timesteps):
-		for op in Operators:
-			for enb in op.eNBs:
-				load[enb.ID] = credit[op]/len(op.eNBs)
-		print load
-
-		(Assign_FERMI,FERMIshare,assign_grid) = FermiAllocations(UEs,u_m,deepcopy(G),load,N,info,comp)
-		activity.append(run_single (UEs,N,UE_activity,Rx_power,assign_grid,i))
-
-	return process_activity(activity)
-
-def run_creditBased1b (UEs,u_m,G,N,UE_activity,info,comp,timesteps,Rx_power,Operators):
-	activity = []
-
-	credit = {}
-	for op in Operators:
-		credit[op] = float(len(op.UEs))
-	load = {}
-	op_active_users = {}
-	for i in range(timesteps):
-		for op in Operators:
-			for enb in op.eNBs:
-				load[enb.ID] = credit[op]/len(op.eNBs)
-		print load
-
-		(Assign_FERMI,FERMIshare,assign_grid) = FermiAllocations(UEs,u_m,deepcopy(G),load,N,info,comp)
-		activity.append(run_single (UEs,N,UE_activity,Rx_power,assign_grid,i))
-
-	return process_activity(activity)
-
-def run_creditBased2a (UEs,u_m,G,N,UE_activity,info,comp,timesteps,Rx_power,Operators):
-	activity = []
-
-	credit = {}
-	for op in Operators:
-		credit[op] = 100.0
-	load = {}
-	op_active_users = {}
-	for i in range(timesteps):
-		for op in Operators:
-			tot_active = 0
-			for enb in op.eNBs:
-				active_ue = 0
-				for j in range(len(enb.UEs)):
-					if (enb.UEs[j].activity[i] == 1):
-						active_ue += 1
-				load[enb.ID] = active_ue
-				tot_active += active_ue
-			op_active_users[op] = tot_active
-		for op in Operators:
-			tot_active = 0
-			for enb in op.eNBs:
-				load[enb.ID] = credit[op]*load[enb.ID]/op_active_users[op]
-		print load
-
-		(Assign_FERMI,FERMIshare,assign_grid) = FermiAllocations(UEs,u_m,deepcopy(G),load,N,info,comp)
-		activity.append(run_single (UEs,N,UE_activity,Rx_power,assign_grid,i))
-
-	return process_activity(activity)
-
-def run_creditBased2b (UEs,u_m,G,N,UE_activity,info,comp,timesteps,Rx_power,Operators):
-	activity = []
-
-	credit = {}
-	for op in Operators:
-		credit[op] = float(len(op.UEs))
+	def genActivity(self,size_):
+		self.activity=np.random.choice([0, 1], size=(size_,), p=[4./5, 1./5])
+		for i in range(size_):
+			if(self.activity[i]==1):
+				self.activity[i] = random.randint(5,500)
+		print (self.activity)
 
 
-	load = {}
-	op_active_users = {}
-	for i in range(timesteps):
-		for op in Operators:
-			tot_active = 0
-			for enb in op.eNBs:
-				active_ue = 0
-				for j in range(len(enb.UEs)):
-					if (enb.UEs[j].activity[i] == 1):
-						active_ue += 1
-				load[enb.ID] = active_ue
-				tot_active += active_ue
-			op_active_users[op] = tot_active
-		for op in Operators:
-			tot_active = 0
-			for enb in op.eNBs:
-				load[enb.ID] = credit[op]*load[enb.ID]/op_active_users[op]
-		print load
-
-		(Assign_FERMI,FERMIshare,assign_grid) = FermiAllocations(UEs,u_m,deepcopy(G),load,N,info,comp)
-		activity.append(run_single (UEs,N,UE_activity,Rx_power,assign_grid,i))
-
-	return process_activity(activity)
-
-def getUtility(UE_activity,operators,ac):
-	utils = {}
-	zeroThroughput = {}
-	for op in operators:
-		utility = 0	
-		zeroThroughput[op.ID] = 0
-		for e in op.eNBs:
-			enb = e.ID
-			active_ue = 0
-			for ue in range(len(e.UEs)):
-				effi = 0
-				for ef in ac[enb][ue]:
-					if (ef != -1):
-						effi += ef
-				if (effi == 0 and UE_activity[enb][ue][0] == 1):
-					utility += -100
-					zeroThroughput[op.ID] += 1
-				elif(effi != 0):
-					utility += math.log(effi)
-		utils[op.ID] = utility
-	return (utils,zeroThroughput)
+def simu():
+	generate_user_activity()
 
 
-def run_single (UEs,N,UE_activity,Rx_power,assignment,step):
-	curr_rates = {}
-	for enb in UEs:
-		curr_rates[enb] = {}
-		for j in range(len(UEs[enb])):
-			if (UE_activity[enb][j][step] == 0):
-				curr_rates[enb][j] = []
-			else:
-				curr_rates[enb][j] = getSNR(N,assignment,Rx_power,enb,j)
-	#print curr_rates
-	return curr_rates
-
-def getUtilityForOp(UEs,FermiIntfMap,load,N,UE_activity,Rx_power,op,t):
-	(Assign_FERMI,FERMIshare,assign_grid) = FermiAllocationsSimple(UEs,FermiIntfMap,deepcopy(load),N)
-	ac = run_single (UEs,N,UE_activity,Rx_power,assign_grid,t)
-	(util,zeroThroughput) = getUtility(UE_activity,[op],ac)
-	return util[op.ID]
-
-def getTputs(ac,operators):
-	truputu = []
-	trupute = []
-	truputo = []
-	for op in operators:
-		effio = 0
-		for e in op.eNBs:
-			enb = e.ID
-			effie = 0
-			for ue in ac[enb]:
-				effi = 0
-				for ef in ac[enb][ue]:
-					if (ef != -1):
-						effi += ef
-						effie += ef
-						effio += ef
-				truputu.append(effi)
-			trupute.append(effie)
-		truputo.append(effio)
-	truput = (truputu,trupute,truputo)
-	return truput
-
-def getAllUtil(UEs,FermiIntfMap,load,N,UE_activity,Rx_power,op,t):
-	(Assign_FERMI,FERMIshare,assign_grid) = FermiAllocationsSimple(UEs,FermiIntfMap,deepcopy(load),N)
-	ac = run_single (UEs,N,UE_activity,Rx_power,assign_grid,t)
-	(util,zeroThroughput) = getUtility(UE_activity,op,ac)
-
-	return (util,getTputs(ac,op))
-
-def find_max_grad(UEs,FermiIntfMap,load,N,UE_activity,Rx_power,op, utility,t, delta = 1):
-	#print 'Finding Max grad direction'
-	#print 'Utility to beat:', utility
-	#print load
-	
-	E1 = 0
-	E2 = 0
-	util = utility
-	optimalLoad = deepcopy(load)
-	for e1 in op.eNBs:
-		for e2 in op.eNBs:
-			if (e1.ID == e2.ID):
-				continue
-			if (load[e1.ID] <= delta):
-				continue
-			if (load[e2.ID] == 0):
-				continue
-
-			newLoad = deepcopy(load)
-			newLoad[e1.ID] -= delta
-			newLoad[e2.ID] += delta
-			#toprint = {x:newLoad[x] for x in range(0,10)}
-			newutility = getUtilityForOp(UEs,FermiIntfMap,newLoad,N,UE_activity,Rx_power,op,t)
-			#print e1.ID, '->', e2.ID, ':', newutility
-			#print toprint
-			#print ''
-
-			if (newutility > util):
-				E1 = e1.ID
-				E2 = e2.ID
-				util = newutility
-				optimalLoad = deepcopy(newLoad)
-				print 'new max', util
-	return (E1,E2,optimalLoad,util)
-
-
-def maximizeUtility(UEs,FermiIntfMap,load,N,UE_activity,Rx_power,op,t,delta = 1):
-	utility = getUtilityForOp(UEs,FermiIntfMap,load,N,UE_activity,Rx_power,op,t)
-	print utility
-	changed_utility = 0
-	
-	it = 0
-
-	while (True):
-		(E1,E2,optimalLoad,utility) = find_max_grad(UEs,FermiIntfMap,deepcopy(load),N,UE_activity,Rx_power,op, utility,t,delta)
-		if (E1 == E2):
-			break
-		changed_utility = 1
-		load = optimalLoad
-		#print 'Iterating on the max gradient', E1 ,'->', E2
-		while (load[E1] > delta):
-			nload = deepcopy(load)
-			nload[E1] -= delta
-			nload[E2] += delta
-			newutility = getUtilityForOp(UEs,FermiIntfMap,nload,N,UE_activity,Rx_power,op,t)
-			if(newutility <= utility):
-				break
-			utility = newutility
-			print utility
-			load = nload
-		print '\n\n'
-		#it += 1
-	
-	print 'Final Utility = ', utility
-	return load
-
-def run_creditBased2bWith (UEs,u_m,G,N,UE_activity,info,comp,timesteps,Rx_power,Operators,iterations):
-	activity = []
-	util_thresh = 1e-5
-
-	All_util = []
-	All_tput = []
-	credit = {}
-	for op in Operators:
-		credit[op] = float(len(op.UEs))
-
-	FermiIntfMap = []
-	for m in G:
-		FermiIntfMap.append(getCliques(m))
-	#print 'C', FermiIntfMap[0][0]
-
-
-	load = {}
-	op_active_users = {}
-	for i in range(timesteps):
-		for op in Operators:
-			tot_active = 0
-			for enb in op.eNBs:
-				active_ue = 0
-				for j in range(len(enb.UEs)):
-					if (enb.UEs[j].activity[i] == 1):
-						active_ue += 1
-				load[enb.ID] = active_ue
-				tot_active += active_ue
-			op_active_users[op] = tot_active
-		for op in Operators:
-			tot_active = 0
-			for enb in op.eNBs:
-				load[enb.ID] = int(credit[op]*load[enb.ID]/op_active_users[op])
-		#print load			
-		(origUtil,thrupt) = getAllUtil(UEs,FermiIntfMap,load,N,UE_activity,Rx_power,Operators,i)
-
-		comp.write(str(origUtil)+'\n')
-		All_util.append(origUtil)
-		All_tput.append(thrupt)
-		prevUtil = origUtil
-		delta = 1
-		for it in range(iterations):
-			print str(it)+'th iteration'
-			order = range(len(Operators))
-			random.shuffle(order)
-			for j in order:
-				
-				op = Operators[j]
-				print op.ID, 'Optimizing'
-				nload = maximizeUtility(UEs,FermiIntfMap,load,N,UE_activity,Rx_power,op,i,delta)
-				(newUtil,thrupt) = getAllUtil(UEs,FermiIntfMap,nload,N,UE_activity,Rx_power,Operators,i)
-
-				load = nload
-				All_util.append(newUtil)
-				All_tput.append(thrupt)
-				comp.write(str(newUtil) + '\n')
-
-			anyChanged = 0
-			for o in prevUtil:
-				if (abs(prevUtil[o] - newUtil[o]) > util_thresh):
-					anyChanged = 1
-			if (anyChanged == 0):
-				break
-			prevUtil = newUtil
-
-			#if (it == 30):
-			#	delta = 0.5
-
-	return (All_util,All_tput)
-
-import networkx as nx
 
 def main(operators,npo,usersPerOperator,N,l,w):
 
@@ -1042,7 +712,7 @@ def main(operators,npo,usersPerOperator,N,l,w):
 
 # Body, generating scripts
 #os.system('mkdir ' + outputDir)
-for z in range(1):
+for z in range(0):
 	l = 200
 	w = 200
 	N = 100
@@ -1080,6 +750,9 @@ for z in range(1):
 	#os.system('mv comparison.txt res/'+str(z)+'/comparison.txt')
 	#os.system('mv convergence.txt res/convergence_'+str(z)+'.txt')
 #info2.close()
+u=UserE(1,(1,1),1)
+u.genActivity(10)
+#print(getSpectralEfficiency(1000))
 #A:0 B:1 C:2 D:3 E:4 F:5 G:6
 '''
 G = {0:[1,3],1:[2,0],2:[1,3,4,5],3:[0,2,6],4:[2,5],5:[2,4],6:[3]}
